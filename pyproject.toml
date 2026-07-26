@@ -15,5 +15,5 @@ Documentation = "https://github.com/Zoltar358-ComfyUI/ComfyUI-Universal-Model-Lo
 "Bug Tracker" = "https://github.com/Zoltar358-ComfyUI/ComfyUI-Universal-Model-Loader/issues"
 
 [tool.comfy]
-PublisherId = "Zoltar358-ComfyUI"
+PublisherId = "Zoltar358"
 DisplayName = "ComfyUI Universal Model Loader"
