@@ -18,6 +18,14 @@ This nodepack has been submitted for ComfyUI Manager listing. After it is accept
 4. Search for **ComfyUI-Universal-Model-Loader**.
 5. Click **Install** and restart ComfyUI.
 
+### Comfy Registry / comfy-cli
+
+After the registry package is published, install it with:
+
+```bash
+comfy node install universal-model-loader
+```
+
 ### Manual install
 
 From your `ComfyUI/custom_nodes` directory:
