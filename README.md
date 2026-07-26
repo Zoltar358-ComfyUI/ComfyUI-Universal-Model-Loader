@@ -4,6 +4,47 @@ Author: Zoltar358
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
 
+## Installation
+
+### ComfyUI Manager
+
+This nodepack has been submitted for ComfyUI Manager listing. After it is accepted, install it from:
+
+1. Open ComfyUI.
+2. Click **Manager**.
+3. Click **Install Custom Nodes**.
+4. Search for **ComfyUI-Universal-Model-Loader**.
+5. Click **Install** and restart ComfyUI.
+
+### Manual install
+
+From your `ComfyUI/custom_nodes` directory:
+
+```bash
+git clone https://github.com/Zoltar358-ComfyUI/ComfyUI-Universal-Model-Loader.git
+```
+
+Then restart ComfyUI and hard-refresh the browser page.
+
+### Updating
+
+From the installed nodepack directory:
+
+```bash
+git pull
+```
+
+Then restart ComfyUI and hard-refresh the browser page.
+
+### Optional dependency for GGUF mode
+
+`gguf_unet` mode requires [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF):
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/city96/ComfyUI-GGUF.git
+```
+
 ## Node
 
 **Universal MODEL Loader** (`model/loaders`)
