@@ -1,5 +1,7 @@
 # ComfyUI Universal Model Loader
 
+![Universal MODEL Loader node screenshot](assets/universal-model-loader.png)
+
 Author: Zoltar358
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
