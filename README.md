@@ -4,6 +4,8 @@
 
 Author: Zoltar358
 
+Version: 1.0.0
+
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
 
 ## Installation
