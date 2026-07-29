@@ -1,0 +1,7 @@
+# Files tracked in git but not needed in the Registry package.
+.github/
+.hermes/
+scripts/
+*.log
+__pycache__/
+*.py[cod]
