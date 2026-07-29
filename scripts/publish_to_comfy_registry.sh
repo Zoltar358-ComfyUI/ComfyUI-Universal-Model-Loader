@@ -17,7 +17,7 @@ set -Eeuo pipefail
 #   REGISTRY_ACCESS_TOKEN='pat-...' ./scripts/publish_to_comfy_registry.sh --token-env
 #
 # Notes:
-# - The safest/default mode lets `comfy node publish` prompt for the API key.
+# - The default mode reads the token silently, strips paste artifacts, and passes it to comfy-cli.
 # - Create the API key from https://registry.comfy.org/nodes for publisher @Zoltar358.
 # - Paste the key with right-click paste if possible; the Comfy docs warn Ctrl+V can add a hidden \x16 character on some systems.
 # - This script never writes the Registry token to disk.
@@ -29,12 +29,14 @@ Usage: scripts/publish_to_comfy_registry.sh [OPTIONS]
 Options:
   --check-only             Run metadata/git/comfy validation only; do not publish.
   --token-env              Use REGISTRY_ACCESS_TOKEN from the environment instead of the hidden comfy prompt.
+  --comfy-prompt           Let comfy-cli prompt for the token directly instead of sanitizing it first.
   --changelog TEXT         Pass changelog text to the Registry publish command.
   --changelog-file PATH    Pass changelog file to the Registry publish command.
   -h, --help               Show this help.
 
 Default publish mode:
-  Runs `comfy node publish` and lets comfy-cli prompt for the Registry API key.
+  Silently prompts for the Registry API key, strips whitespace/CR/LF and hidden Ctrl+V \x16,
+  then runs `comfy node publish --token ...`.
 
 Examples:
   scripts/publish_to_comfy_registry.sh --check-only
@@ -45,6 +47,7 @@ EOF
 
 CHECK_ONLY=0
 USE_TOKEN_ENV=0
+USE_COMFY_PROMPT=0
 CHANGELOG=""
 CHANGELOG_FILE=""
 
@@ -56,6 +59,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --token-env)
       USE_TOKEN_ENV=1
+      shift
+      ;;
+    --comfy-prompt)
+      USE_COMFY_PROMPT=1
       shift
       ;;
     --changelog)
@@ -82,6 +89,11 @@ done
 
 if [[ -n "$CHANGELOG" && -n "$CHANGELOG_FILE" ]]; then
   echo "error: --changelog and --changelog-file are mutually exclusive" >&2
+  exit 2
+fi
+
+if [[ "$USE_TOKEN_ENV" -eq 1 && "$USE_COMFY_PROMPT" -eq 1 ]]; then
+  echo "error: --token-env and --comfy-prompt are mutually exclusive" >&2
   exit 2
 fi
 
@@ -191,13 +203,31 @@ if [[ "$USE_TOKEN_ENV" -eq 1 ]]; then
   fi
   echo "==> Publishing with token from REGISTRY_ACCESS_TOKEN"
   "${COMFY_ENV[@]}" comfy "${publish_args[@]}" --token "$token"
-else
+elif [[ "$USE_COMFY_PROMPT" -eq 1 ]]; then
   cat <<'EOF'
 ==> Publishing with comfy-cli hidden prompt
 When prompted, paste the Registry Publishing API key for publisher @Zoltar358.
 Recommended by Comfy docs: right-click paste to avoid adding a hidden Ctrl+V \x16 character.
 EOF
   "${COMFY_ENV[@]}" comfy "${publish_args[@]}"
+else
+  cat <<'EOF'
+==> Publishing with sanitized hidden token prompt
+Paste the Registry Publishing API key for publisher @Zoltar358.
+This script strips whitespace, CR/LF, and the hidden Ctrl+V \x16 character mentioned in the Comfy docs before publishing.
+EOF
+  if [[ -t 0 ]]; then
+    read -r -s -p "Registry API key: " token
+    printf '\n'
+  else
+    IFS= read -r token
+  fi
+  token="$(printf '%s' "$token" | tr -d '\r\n[:space:]\026')"
+  if [[ -z "$token" ]]; then
+    echo "error: Registry API key became empty after sanitizing" >&2
+    exit 2
+  fi
+  "${COMFY_ENV[@]}" comfy "${publish_args[@]}" --token "$token"
 fi
 
 echo "==> Publish command completed."
