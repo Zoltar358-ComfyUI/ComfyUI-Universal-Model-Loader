@@ -42,21 +42,52 @@ function modelHint(node) {
   return "";
 }
 
-function isKrea2Hint(hint) {
-  const lower = String(hint || "").toLowerCase();
-  const tokens = lower.replaceAll("\\\\", "/").replaceAll("_", "-");
-  return lower.includes("krea2") || lower.includes("krea-2") || lower.includes("krea_2") ||
-    tokens.startsWith("kr2/") || tokens.includes("/kr2/") || lower.includes("[kr2]") || lower.includes(" kr2");
-}
+const CLIP_TYPE_HINTS = [
+  ["krea2", ["krea2", "krea-2", "krea_2", "kr2", "[kr2]"]],
+  ["qwen_image", ["qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]"]],
+  ["hunyuan_image", ["hunyuan_image", "hunyuan-image", "hunyuan image", "hunyuan"]],
+  ["ideogram4", ["ideogram4", "ideogram-4", "ideogram 4", "ideo4", "[ideo]"]],
+  ["boogu", ["boogu", "boog", "[boog]"]],
+  ["joyimage", ["joyimage", "joy-image", "joy image", "[joy]"]],
+  ["mage", ["mage", "[mage]"]],
+  ["minimax", ["minimax", "mini-max", "mini max"]],
+  ["longcat_image", ["longcat_image", "longcat-image", "longcat image", "long-cat", "long cat"]],
+  ["pixeldit", ["pixeldit", "pixel-dit", "pixel dit"]],
+  ["omnigen2", ["omnigen2", "omnigen-2", "omnigen 2"]],
+  ["flux2", ["flux2", "flux-2", "flux.2", "flux 2", "fk9", "[fk9]"]],
+  ["wan", ["wan", "wan2", "wan-2", "wan 2", "[wan]"]],
+  ["hidream", ["hidream", "hi-dream", "hi dream"]],
+  ["chroma", ["chroma"]],
+  ["ovis", ["ovis"]],
+  ["lens", ["lens"]],
+  ["cogvideox", ["cogvideox", "cogvideo-x", "cogvideo x"]],
+  ["cosmos", ["cosmos"]],
+  ["ltxv", ["ltxv", "ltx-video", "ltx video"]],
+  ["mochi", ["mochi"]],
+  ["pixart", ["pixart", "pix-art"]],
+  ["lumina2", ["lumina2", "lumina-2", "lumina 2"]],
+  ["ace", ["ace"]],
+  ["sd3", ["sd3", "sd-3", "stable diffusion 3", "stable-diffusion-3"]],
+  ["stable_audio", ["stable_audio", "stable-audio", "stable audio"]],
+  ["stable_cascade", ["stable_cascade", "stable-cascade", "stable cascade"]],
+];
 
 function recommendedClipType(hint) {
   const lower = String(hint || "").toLowerCase();
-  if (isKrea2Hint(lower)) return "krea2";
-  if (lower.includes("qwen_image") || lower.includes("qwen-image") || lower.includes("qwenimage")) return "qwen_image";
-  if (lower.includes("wan")) return "wan";
-  if (lower.includes("hidream")) return "hidream";
-  if (lower.includes("flux2") || lower.includes("flux-2")) return "flux2";
-  if (lower.includes("chroma")) return "chroma";
+  const normalized = lower.replaceAll("\\\\", "/").replaceAll("_", "-");
+  const padded = `/${normalized}/`;
+  const shortCodes = new Set(["kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo"]);
+  for (const [clipType, markers] of CLIP_TYPE_HINTS) {
+    for (const marker of markers) {
+      const markerKey = marker.replace(/^\[/, "").replace(/\]$/, "").replaceAll("_", "-");
+      if (marker.startsWith("[") && lower.includes(marker)) return clipType;
+      if (shortCodes.has(markerKey)) {
+        if (padded.includes(`/${markerKey}/`) || normalized.startsWith(`${markerKey}/`)) return clipType;
+        continue;
+      }
+      if (lower.includes(marker) || normalized.includes(markerKey)) return clipType;
+    }
+  }
   return "auto";
 }
 

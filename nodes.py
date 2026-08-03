@@ -13,8 +13,37 @@ import nodes
 NONE_ITEM = "— none found —"
 MODEL_TYPES = ["checkpoint", "diffusers", "diffusion_model", "unet", "gguf_unet"]
 MODEL_ONLY_TYPES = {"diffusion_model", "unet", "gguf_unet"}
-WEIGHT_DTYPES = ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"]
 GGUF_DTYPES = ["default", "target", "float32", "float16", "bfloat16"]
+
+CLIP_TYPE_HINTS = [
+    ("krea2", ("krea2", "krea-2", "krea_2", "kr2", "[kr2]")),
+    ("qwen_image", ("qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]")),
+    ("hunyuan_image", ("hunyuan_image", "hunyuan-image", "hunyuan image", "hunyuan")),
+    ("ideogram4", ("ideogram4", "ideogram-4", "ideogram 4", "ideo4", "[ideo]")),
+    ("boogu", ("boogu", "boog", "[boog]")),
+    ("joyimage", ("joyimage", "joy-image", "joy image", "[joy]")),
+    ("mage", ("mage", "[mage]")),
+    ("minimax", ("minimax", "mini-max", "mini max")),
+    ("longcat_image", ("longcat_image", "longcat-image", "longcat image", "long-cat", "long cat")),
+    ("pixeldit", ("pixeldit", "pixel-dit", "pixel dit")),
+    ("omnigen2", ("omnigen2", "omnigen-2", "omnigen 2")),
+    ("flux2", ("flux2", "flux-2", "flux.2", "flux 2", "fk9", "[fk9]")),
+    ("wan", ("wan", "wan2", "wan-2", "wan 2", "[wan]")),
+    ("hidream", ("hidream", "hi-dream", "hi dream")),
+    ("chroma", ("chroma",)),
+    ("ovis", ("ovis",)),
+    ("lens", ("lens",)),
+    ("cogvideox", ("cogvideox", "cogvideo-x", "cogvideo x")),
+    ("cosmos", ("cosmos",)),
+    ("ltxv", ("ltxv", "ltx-video", "ltx video")),
+    ("mochi", ("mochi",)),
+    ("pixart", ("pixart", "pix-art")),
+    ("lumina2", ("lumina2", "lumina-2", "lumina 2")),
+    ("ace", ("ace",)),
+    ("sd3", ("sd3", "sd-3", "stable diffusion 3", "stable-diffusion-3")),
+    ("stable_audio", ("stable_audio", "stable-audio", "stable audio")),
+    ("stable_cascade", ("stable_cascade", "stable-cascade", "stable cascade")),
+]
 
 
 def _filename_list(folder_key, extra_extensions=None):
@@ -65,6 +94,20 @@ def _clip_types():
     return (clip_types, {"default": "auto"})
 
 
+def _available_clip_types():
+    try:
+        return set(nodes.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
+    except Exception:
+        return {"stable_diffusion"}
+
+
+def _weight_dtypes():
+    try:
+        return list(nodes.UNETLoader.INPUT_TYPES()["required"]["weight_dtype"][0])
+    except Exception:
+        return ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"]
+
+
 def _is_krea2_hint(hint):
     hint = hint.lower()
     tokens = hint.replace("\\", "/").replace("_", "-")
@@ -79,23 +122,33 @@ def _is_krea2_hint(hint):
     )
 
 
-def _effective_clip_type(model_hint, clip_type):
+def _recommended_clip_type(model_hint):
     hint = model_hint.lower()
+    normalized = hint.replace("\\", "/").replace("_", "-")
+    padded = f"/{normalized}/"
+    short_codes = {"kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo"}
+    for clip_type, markers in CLIP_TYPE_HINTS:
+        for marker in markers:
+            marker = marker.lower()
+            marker_key = marker.strip("[]").replace("_", "-")
+            if marker.startswith("[") and marker in hint:
+                return clip_type
+            if marker_key in short_codes:
+                if f"/{marker_key}/" in padded or normalized.startswith(f"{marker_key}/"):
+                    return clip_type
+                continue
+            if marker in hint or marker_key in normalized:
+                return clip_type
+    return "stable_diffusion"
+
+
+def _effective_clip_type(model_hint, clip_type):
     if clip_type != "auto" and not (clip_type == "stable_diffusion" and _is_krea2_hint(model_hint)):
         return clip_type
 
-    if _is_krea2_hint(model_hint):
-        return "krea2"
-    if "qwen_image" in hint or "qwen-image" in hint or "qwenimage" in hint:
-        return "qwen_image"
-    if "wan" in hint:
-        return "wan"
-    if "hidream" in hint:
-        return "hidream"
-    if "flux2" in hint or "flux-2" in hint:
-        return "flux2"
-    if "chroma" in hint:
-        return "chroma"
+    recommended = _recommended_clip_type(model_hint)
+    if recommended in _available_clip_types():
+        return recommended
     return "stable_diffusion"
 
 
@@ -223,7 +276,7 @@ class UniversalModelLoader:
                 "diffusion_model_name": (_filename_list("diffusion_models"), {"tooltip": "Used when model_type = diffusion_model or unet. Returns MODEL, CLIP and VAE."}),
                 "diffusers_model_path": (_diffusers_list(), {"tooltip": "Used when model_type = diffusers. Folder under models/diffusers containing model_index.json."}),
                 "gguf_unet_name": (_filename_list("diffusion_models", {".gguf"}), {"tooltip": "Used when model_type = gguf_unet. Requires ComfyUI-GGUF."}),
-                "weight_dtype": (WEIGHT_DTYPES, {"default": "default", "tooltip": "Only used for diffusion_model/unet loading."}),
+                "weight_dtype": (_weight_dtypes(), {"default": "default", "tooltip": "Only used for diffusion_model/unet loading."}),
                 "gguf_dequant_dtype": (GGUF_DTYPES, {"default": "default", "tooltip": "Only used for gguf_unet."}),
                 "gguf_patch_dtype": (GGUF_DTYPES, {"default": "default", "tooltip": "Only used for gguf_unet."}),
                 "gguf_patch_on_device": ("BOOLEAN", {"default": False, "tooltip": "Only used for gguf_unet."}),
@@ -274,17 +327,7 @@ class UniversalModelLoader:
 
         if model_type in ("diffusion_model", "unet"):
             _require_choice("diffusion_models", diffusion_model_name)
-            model_options = {}
-            if weight_dtype == "fp8_e4m3fn":
-                model_options["dtype"] = torch.float8_e4m3fn
-            elif weight_dtype == "fp8_e4m3fn_fast":
-                model_options["dtype"] = torch.float8_e4m3fn
-                model_options["fp8_optimizations"] = True
-            elif weight_dtype == "fp8_e5m2":
-                model_options["dtype"] = torch.float8_e5m2
-
-            unet_path = folder_paths.get_full_path_or_raise("diffusion_models", diffusion_model_name)
-            model = comfy.sd.load_diffusion_model(unet_path, model_options=model_options)
+            model = nodes.UNETLoader().load_unet(diffusion_model_name, weight_dtype)[0]
             clip, vae, aux_info = _resolve_aux_models(model_type, diffusion_model_name, clip_name, clip_type, clip_device, vae_name)
             info = f"{model_type}: {diffusion_model_name}"
             if aux_info:

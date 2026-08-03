@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.0.0
+Version: 1.0.1
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
 
@@ -76,6 +76,8 @@ Supported modes:
 - `gguf_unet` — loads `.gguf` diffusion models using ComfyUI-GGUF, returns MODEL, CLIP and VAE.
 
 The node uses a purple/dark-teal theme matching the screenshot you provided. The frontend extension collapses every widget not relevant to the selected `model_type`; MODEL-only types always load CLIP and VAE from this node.
+
+Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
 
 ## Notes
 
