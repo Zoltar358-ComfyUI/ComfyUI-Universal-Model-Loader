@@ -1,6 +1,6 @@
 [project]
 name = "universal-model-loader"
-version = "1.0.2"
+version = "1.0.3"
 description = "Universal ComfyUI model loader for checkpoints, diffusers, diffusion models, UNet, GGUF, CLIP and VAE with dynamic UI and Registry Node Pack Info previews."
 license = { file = "LICENSE" }
 readme = "README.md"

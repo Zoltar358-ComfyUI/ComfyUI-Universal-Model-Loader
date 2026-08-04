@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.0.2
+Version: 1.0.3
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
 
@@ -87,6 +87,8 @@ Version 1.0.2 adds richer Comfy Registry metadata for ComfyUI Extensions' **Node
 - README, author, keyword and project URL metadata in `pyproject.toml`.
 - Hardened node metadata extraction so the Registry can parse and render the node preview card even in lean extraction environments.
 - A clearer node description for the preview card in the **NODES** section.
+
+Version 1.0.3 hardens the Registry extraction path further by avoiding ambiguity between this package's `nodes.py` and ComfyUI core `nodes.py` during node schema discovery.
 
 ## Notes
 

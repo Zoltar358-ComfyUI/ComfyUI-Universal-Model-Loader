@@ -1,4 +1,5 @@
-import importlib.util
+import importlib
+from importlib import util as importlib_util
 import inspect
 import os
 import sys
@@ -7,7 +8,35 @@ import torch
 
 import comfy.sd
 import folder_paths
-import nodes
+
+
+def _load_comfy_nodes_module():
+    """Load ComfyUI's core nodes.py without confusing it with this package's nodes.py."""
+    module = sys.modules.get("nodes")
+    if module is not None and all(hasattr(module, name) for name in ("CLIPLoader", "UNETLoader", "VAELoader")):
+        return module
+
+    try:
+        module = importlib.import_module("nodes")
+        if all(hasattr(module, name) for name in ("CLIPLoader", "UNETLoader", "VAELoader")):
+            return module
+    except Exception:
+        pass
+
+    folder_paths_file = getattr(folder_paths, "__file__", None)
+    if folder_paths_file is None:
+        raise RuntimeError("Could not locate ComfyUI folder_paths.py while loading core nodes.py")
+    core_nodes_path = os.path.join(os.path.dirname(os.path.abspath(folder_paths_file)), "nodes.py")
+    spec = importlib_util.spec_from_file_location("comfyui_core_nodes_for_universal_model_loader", core_nodes_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not locate ComfyUI core nodes.py at {core_nodes_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("comfyui_core_nodes_for_universal_model_loader", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+COMFY_NODES = _load_comfy_nodes_module()
 
 
 NONE_ITEM = "— none found —"
@@ -93,7 +122,7 @@ def _diffusers_list():
 
 def _clip_types():
     try:
-        clip_types = list(nodes.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
+        clip_types = list(COMFY_NODES.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
     except Exception:
         clip_types = ["stable_diffusion"]
     if "auto" not in clip_types:
@@ -103,14 +132,14 @@ def _clip_types():
 
 def _available_clip_types():
     try:
-        return set(nodes.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
+        return set(COMFY_NODES.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
     except Exception:
         return {"stable_diffusion"}
 
 
 def _weight_dtypes():
     try:
-        return list(nodes.UNETLoader.INPUT_TYPES()["required"]["weight_dtype"][0])
+        return list(COMFY_NODES.UNETLoader.INPUT_TYPES()["required"]["weight_dtype"][0])
     except Exception:
         return ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"]
 
@@ -161,7 +190,7 @@ def _effective_clip_type(model_hint, clip_type):
 
 def _vae_names():
     try:
-        return (nodes.VAELoader.vae_list(nodes.VAELoader),)
+        return (COMFY_NODES.VAELoader.vae_list(COMFY_NODES.VAELoader),)
     except Exception:
         return (_filename_list("vae"),)
 
@@ -196,12 +225,12 @@ def _load_clip(model_hint, clip_name, clip_type, clip_device):
     _require_choice("text_encoders", clip_name)
     device = "cpu" if clip_device == "cpu" else "default"
     resolved_clip_type = _effective_clip_type(model_hint, clip_type)
-    return nodes.CLIPLoader().load_clip(clip_name, resolved_clip_type, device)[0], resolved_clip_type
+    return COMFY_NODES.CLIPLoader().load_clip(clip_name, resolved_clip_type, device)[0], resolved_clip_type
 
 
 def _load_vae(vae_name):
     _require_choice("vae", vae_name)
-    return nodes.VAELoader().load_vae(vae_name)[0]
+    return COMFY_NODES.VAELoader().load_vae(vae_name)[0]
 
 
 def _resolve_aux_models(model_type, model_hint, clip_name, clip_type, clip_device, vae_name):
@@ -222,10 +251,10 @@ def _gguf_nodes_module():
 
     package_name = "comfyui_gguf_universal_loader_bridge"
     if package_name not in sys.modules:
-        spec = importlib.util.spec_from_file_location(package_name, init_file, submodule_search_locations=[package_dir])
+        spec = importlib_util.spec_from_file_location(package_name, init_file, submodule_search_locations=[package_dir])
         if spec is None or spec.loader is None:
             raise RuntimeError(f"Could not import ComfyUI-GGUF from {package_dir}")
-        module = importlib.util.module_from_spec(spec)
+        module = importlib_util.module_from_spec(spec)
         sys.modules[package_name] = module
         try:
             spec.loader.exec_module(module)
@@ -334,7 +363,7 @@ class UniversalModelLoader:
 
         if model_type in ("diffusion_model", "unet"):
             _require_choice("diffusion_models", diffusion_model_name)
-            model = nodes.UNETLoader().load_unet(diffusion_model_name, weight_dtype)[0]
+            model = COMFY_NODES.UNETLoader().load_unet(diffusion_model_name, weight_dtype)[0]
             clip, vae, aux_info = _resolve_aux_models(model_type, diffusion_model_name, clip_name, clip_type, clip_device, vae_name)
             info = f"{model_type}: {diffusion_model_name}"
             if aux_info:
