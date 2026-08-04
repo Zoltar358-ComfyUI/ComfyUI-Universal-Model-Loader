@@ -1,10 +1,15 @@
 [project]
 name = "universal-model-loader"
-version = "1.0.1"
-description = "Universal ComfyUI model loader for checkpoints, diffusers, diffusion models, UNet, GGUF, CLIP and VAE with a dynamic polished UI."
+version = "1.0.2"
+description = "Universal ComfyUI model loader for checkpoints, diffusers, diffusion models, UNet, GGUF, CLIP and VAE with dynamic UI and Registry Node Pack Info previews."
 license = { file = "LICENSE" }
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
+authors = [
+    { name = "Zoltar358", email = "zoltar@post.pl" },
+]
+keywords = ["ComfyUI", "custom-node", "model-loader", "checkpoint", "diffusers", "unet", "gguf", "clip", "vae"]
 classifiers = [
     "Operating System :: OS Independent",
 ]
@@ -17,3 +22,5 @@ Documentation = "https://github.com/Zoltar358-ComfyUI/ComfyUI-Universal-Model-Lo
 [tool.comfy]
 PublisherId = "zoltar358-comfyui"
 DisplayName = "ComfyUI Universal Model Loader"
+Icon = "https://raw.githubusercontent.com/Zoltar358-ComfyUI/ComfyUI-Universal-Model-Loader/main/assets/icon.svg"
+Banner = "https://raw.githubusercontent.com/Zoltar358-ComfyUI/ComfyUI-Universal-Model-Loader/main/assets/banner.svg"

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2100 900" role="img" aria-label="ComfyUI Universal Model Loader banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2e1065"/>
+      <stop offset="0.48" stop-color="#134e4a"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="68%" cy="36%" r="55%">
+      <stop offset="0" stop-color="#67e8f9" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#67e8f9" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="2100" height="900" fill="url(#bg)"/>
+  <rect width="2100" height="900" fill="url(#glow)"/>
+  <g opacity="0.24" stroke="#a7f3d0" stroke-width="4" fill="none">
+    <path d="M-40 720 C 280 550, 460 860, 760 650 S 1280 380, 2140 560"/>
+    <path d="M-40 380 C 380 180, 640 540, 940 340 S 1500 120, 2140 280"/>
+    <path d="M-40 850 C 340 710, 640 850, 1040 720 S 1660 520, 2140 700"/>
+  </g>
+  <g transform="translate(145,165)">
+    <rect x="0" y="0" width="570" height="570" rx="78" fill="#062f3b" stroke="#a7f3d0" stroke-width="10"/>
+    <rect x="42" y="42" width="486" height="88" rx="28" fill="#4c1d95"/>
+    <text x="72" y="100" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800" fill="#fff">Universal MODEL Loader</text>
+    <g font-family="Inter, Arial, sans-serif" font-size="30" fill="#d9fff8">
+      <text x="74" y="206">checkpoint</text><text x="372" y="206">MODEL</text>
+      <text x="74" y="280">diffusers</text><text x="397" y="280">CLIP</text>
+      <text x="74" y="354">diffusion / UNet</text><text x="421" y="354">VAE</text>
+      <text x="74" y="428">GGUF UNet</text><text x="349" y="428">loaded_info</text>
+    </g>
+    <path d="M66 490h438" stroke="#67e8f9" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="820" y="300" font-size="92" font-weight="900" fill="#ffffff">ComfyUI Universal</text>
+    <text x="820" y="404" font-size="92" font-weight="900" fill="#a7f3d0">Model Loader</text>
+    <text x="825" y="504" font-size="42" font-weight="600" fill="#d1d5db">One polished dynamic node for checkpoints, diffusers, diffusion models, UNet, GGUF, CLIP and VAE.</text>
+    <text x="825" y="590" font-size="34" font-weight="700" fill="#fde68a">Registry-ready · Node Pack Info preview · latest model-family CLIP auto-detection</text>
+  </g>
+</svg>

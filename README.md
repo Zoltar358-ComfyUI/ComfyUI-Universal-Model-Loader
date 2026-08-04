@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.0.1
+Version: 1.0.2
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
 
@@ -78,6 +78,15 @@ Supported modes:
 The node uses a purple/dark-teal theme matching the screenshot you provided. The frontend extension collapses every widget not relevant to the selected `model_type`; MODEL-only types always load CLIP and VAE from this node.
 
 Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
+
+## 1.0.2 Node Pack Info update
+
+Version 1.0.2 adds richer Comfy Registry metadata for ComfyUI Extensions' **Node Pack Info** panel:
+
+- Registry icon and banner assets.
+- README, author, keyword and project URL metadata in `pyproject.toml`.
+- Hardened node metadata extraction so the Registry can parse and render the node preview card even in lean extraction environments.
+- A clearer node description for the preview card in the **NODES** section.
 
 ## Notes
 

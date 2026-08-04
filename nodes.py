@@ -46,6 +46,13 @@ CLIP_TYPE_HINTS = [
 ]
 
 
+def _folder_paths(folder_key):
+    try:
+        return list(folder_paths.get_folder_paths(folder_key))
+    except Exception:
+        return []
+
+
 def _filename_list(folder_key, extra_extensions=None):
     try:
         names = list(folder_paths.get_filename_list(folder_key))
@@ -54,7 +61,7 @@ def _filename_list(folder_key, extra_extensions=None):
 
     if extra_extensions:
         existing = set(names)
-        for base in folder_paths.get_folder_paths(folder_key):
+        for base in _folder_paths(folder_key):
             if not os.path.isdir(base):
                 continue
             for root, _dirs, files in os.walk(base, followlinks=True):
@@ -291,7 +298,7 @@ class UniversalModelLoader:
     RETURN_NAMES = ("model", "clip", "vae", "loaded_info")
     FUNCTION = "load_model"
     CATEGORY = "model/loaders"
-    DESCRIPTION = "Universal front-end model loader: checkpoint, diffusers, diffusion/unet, GGUF unet, optional CLIP, and optional VAE from one node."
+    DESCRIPTION = "Loads checkpoints, diffusers folders, diffusion/UNet models, GGUF UNets, CLIP/text encoders, and VAE from one polished dynamic loader node."
     SEARCH_ALIASES = ["universal model loader", "checkpoint loader", "unet loader", "gguf loader", "diffusers loader", "clip loader", "vae loader"]
 
     def load_model(
