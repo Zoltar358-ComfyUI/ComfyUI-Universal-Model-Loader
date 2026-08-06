@@ -4,9 +4,9 @@
 
 Author: Zoltar358
 
-Version: 1.0.3
+Version: 1.0.5
 
-A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type.
+A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
 ## Installation
 
@@ -67,6 +67,8 @@ Outputs:
 2. `clip` — `CLIP`
 3. `vae` — `VAE`
 4. `loaded_info` — `STRING`
+5. `clip2` — `CLIP` optional second CLIP/text encoder, or `none`
+6. `vae2` — `VAE` optional second VAE, or `none`
 
 Supported modes:
 
@@ -76,6 +78,8 @@ Supported modes:
 - `gguf_unet` — loads `.gguf` diffusion models using ComfyUI-GGUF, returns MODEL, CLIP and VAE.
 
 The node uses a purple/dark-teal theme matching the screenshot you provided. The frontend extension collapses every widget not relevant to the selected `model_type`; MODEL-only types always load CLIP and VAE from this node.
+
+Optional `clip2` and `vae2` selectors default to `none`, so existing one-CLIP/one-VAE workflows remain simple. Select a second text encoder or VAE only for model families/workflows that require one.
 
 Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
 
@@ -89,6 +93,10 @@ Version 1.0.2 adds richer Comfy Registry metadata for ComfyUI Extensions' **Node
 - A clearer node description for the preview card in the **NODES** section.
 
 Version 1.0.3 hardens the Registry extraction path further by avoiding ambiguity between this package's `nodes.py` and ComfyUI core `nodes.py` during node schema discovery.
+
+Version 1.0.4 adds optional second CLIP and VAE loading with new `clip2` and `vae2` outputs. The extra selectors default to `none` for workflows that only need the original primary CLIP/VAE.
+
+Version 1.0.5 makes the optional VAE selector easier to see by placing `vae2_name` directly after `clip2_name`, keeping it visible for every mode, and hiding `clip2_type`/`clip2_device` until a real second CLIP is selected.
 
 ## Notes
 

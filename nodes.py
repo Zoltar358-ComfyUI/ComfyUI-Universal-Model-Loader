@@ -30,7 +30,7 @@ def _load_comfy_nodes_module():
     spec = importlib_util.spec_from_file_location("comfyui_core_nodes_for_universal_model_loader", core_nodes_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not locate ComfyUI core nodes.py at {core_nodes_path}")
-    module = importlib.util.module_from_spec(spec)
+    module = importlib_util.module_from_spec(spec)
     sys.modules.setdefault("comfyui_core_nodes_for_universal_model_loader", module)
     spec.loader.exec_module(module)
     return module
@@ -102,6 +102,11 @@ def _filename_list(folder_key, extra_extensions=None):
         names = sorted(existing)
 
     return names or [NONE_ITEM]
+
+
+def _optional_filename_list(folder_key, extra_extensions=None):
+    names = [name for name in _filename_list(folder_key, extra_extensions) if name != NONE_ITEM]
+    return ["none", *names]
 
 
 def _diffusers_list():
@@ -195,6 +200,14 @@ def _vae_names():
         return (_filename_list("vae"),)
 
 
+def _optional_vae_names():
+    try:
+        names = list(COMFY_NODES.VAELoader.vae_list(COMFY_NODES.VAELoader))
+    except Exception:
+        names = [name for name in _filename_list("vae") if name != NONE_ITEM]
+    return (["none", *names], {"default": "none", "tooltip": "Optional second VAE output. Select none when only one VAE is needed."})
+
+
 def _require_choice(kind, value):
     if not value or value == NONE_ITEM:
         raise ValueError(f"No {kind} was selected/found. Put a compatible model in ComfyUI/models/{kind} and Refresh the browser.")
@@ -228,9 +241,21 @@ def _load_clip(model_hint, clip_name, clip_type, clip_device):
     return COMFY_NODES.CLIPLoader().load_clip(clip_name, resolved_clip_type, device)[0], resolved_clip_type
 
 
+def _load_optional_clip(model_hint, clip_name, clip_type, clip_device):
+    if not clip_name or clip_name in ("none", NONE_ITEM):
+        return None, None
+    return _load_clip(model_hint, clip_name, clip_type, clip_device)
+
+
 def _load_vae(vae_name):
     _require_choice("vae", vae_name)
     return COMFY_NODES.VAELoader().load_vae(vae_name)[0]
+
+
+def _load_optional_vae(vae_name):
+    if not vae_name or vae_name in ("none", NONE_ITEM):
+        return None
+    return _load_vae(vae_name)
 
 
 def _resolve_aux_models(model_type, model_hint, clip_name, clip_type, clip_device, vae_name):
@@ -241,6 +266,17 @@ def _resolve_aux_models(model_type, model_hint, clip_name, clip_type, clip_devic
     vae = _load_vae(vae_name)
     loaded = [f"clip: {clip_name} ({resolved_clip_type})", f"vae: {vae_name}"]
     return clip, vae, loaded
+
+
+def _resolve_optional_aux_models(model_hint, clip2_name, clip2_type, clip2_device, vae2_name):
+    clip2, resolved_clip2_type = _load_optional_clip(model_hint, clip2_name, clip2_type, clip2_device)
+    vae2 = _load_optional_vae(vae2_name)
+    loaded = []
+    if clip2 is not None:
+        loaded.append(f"clip2: {clip2_name} ({resolved_clip2_type})")
+    if vae2 is not None:
+        loaded.append(f"vae2: {vae2_name}")
+    return clip2, vae2, loaded
 
 
 def _gguf_nodes_module():
@@ -320,14 +356,18 @@ class UniversalModelLoader:
                 "clip_type": _clip_types(),
                 "clip_device": (["default", "cpu"], {"default": "default", "advanced": True, "tooltip": "Device for the loaded CLIP/text encoder."}),
                 "vae_name": _vae_names(),
+                "clip2_name": (_optional_filename_list("text_encoders"), {"default": "none", "tooltip": "Optional second CLIP/text encoder output. Select none when only one CLIP is needed."}),
+                "vae2_name": _optional_vae_names(),
+                "clip2_type": _clip_types(),
+                "clip2_device": (["default", "cpu"], {"default": "default", "advanced": True, "tooltip": "Device for the optional second CLIP/text encoder."}),
             },
         }
 
-    RETURN_TYPES = ("MODEL", "CLIP", "VAE", "STRING")
-    RETURN_NAMES = ("model", "clip", "vae", "loaded_info")
+    RETURN_TYPES = ("MODEL", "CLIP", "VAE", "STRING", "CLIP", "VAE")
+    RETURN_NAMES = ("model", "clip", "vae", "loaded_info", "clip2", "vae2")
     FUNCTION = "load_model"
     CATEGORY = "model/loaders"
-    DESCRIPTION = "Loads checkpoints, diffusers folders, diffusion/UNet models, GGUF UNets, CLIP/text encoders, and VAE from one polished dynamic loader node."
+    DESCRIPTION = "Loads checkpoints, diffusers folders, diffusion/UNet models, GGUF UNets, primary and optional second CLIP/text encoders, and primary and optional second VAE outputs from one polished dynamic loader node."
     SEARCH_ALIASES = ["universal model loader", "checkpoint loader", "unet loader", "gguf loader", "diffusers loader", "clip loader", "vae loader"]
 
     def load_model(
@@ -345,38 +385,54 @@ class UniversalModelLoader:
         clip_type,
         clip_device,
         vae_name,
+        clip2_name,
+        vae2_name,
+        clip2_type,
+        clip2_device,
     ):
         if model_type == "checkpoint":
             _require_choice("checkpoints", checkpoint_name)
             ckpt_path = folder_paths.get_full_path_or_raise("checkpoints", checkpoint_name)
-            out = comfy.sd.load_checkpoint_guess_config(
+            model, clip, vae = comfy.sd.load_checkpoint_guess_config(
                 ckpt_path,
                 output_vae=True,
                 output_clip=True,
                 embedding_directory=folder_paths.get_folder_paths("embeddings"),
             )[:3]
-            return (*out, f"checkpoint: {checkpoint_name}")
+            clip2, vae2, extra_info = _resolve_optional_aux_models(checkpoint_name, clip2_name, clip2_type, clip2_device, vae2_name)
+            info = f"checkpoint: {checkpoint_name}"
+            if extra_info:
+                info += " | " + " | ".join(extra_info)
+            return (model, clip, vae, info, clip2, vae2)
 
         if model_type == "diffusers":
             model, clip, vae = _load_diffusers(diffusers_model_path)
-            return (model, clip, vae, f"diffusers: {diffusers_model_path}")
+            clip2, vae2, extra_info = _resolve_optional_aux_models(diffusers_model_path, clip2_name, clip2_type, clip2_device, vae2_name)
+            info = f"diffusers: {diffusers_model_path}"
+            if extra_info:
+                info += " | " + " | ".join(extra_info)
+            return (model, clip, vae, info, clip2, vae2)
 
         if model_type in ("diffusion_model", "unet"):
             _require_choice("diffusion_models", diffusion_model_name)
             model = COMFY_NODES.UNETLoader().load_unet(diffusion_model_name, weight_dtype)[0]
             clip, vae, aux_info = _resolve_aux_models(model_type, diffusion_model_name, clip_name, clip_type, clip_device, vae_name)
+            clip2, vae2, extra_info = _resolve_optional_aux_models(diffusion_model_name, clip2_name, clip2_type, clip2_device, vae2_name)
             info = f"{model_type}: {diffusion_model_name}"
-            if aux_info:
-                info += " | " + " | ".join(aux_info)
-            return (model, clip, vae, info)
+            all_info = [*aux_info, *extra_info]
+            if all_info:
+                info += " | " + " | ".join(all_info)
+            return (model, clip, vae, info, clip2, vae2)
 
         if model_type == "gguf_unet":
             model = _load_gguf_unet(gguf_unet_name, gguf_dequant_dtype, gguf_patch_dtype, gguf_patch_on_device)
             clip, vae, aux_info = _resolve_aux_models(model_type, gguf_unet_name, clip_name, clip_type, clip_device, vae_name)
+            clip2, vae2, extra_info = _resolve_optional_aux_models(gguf_unet_name, clip2_name, clip2_type, clip2_device, vae2_name)
             info = f"gguf_unet: {gguf_unet_name}"
-            if aux_info:
-                info += " | " + " | ".join(aux_info)
-            return (model, clip, vae, info)
+            all_info = [*aux_info, *extra_info]
+            if all_info:
+                info += " | " + " | ".join(all_info)
+            return (model, clip, vae, info, clip2, vae2)
 
         raise ValueError(f"Unsupported model_type: {model_type}")
 

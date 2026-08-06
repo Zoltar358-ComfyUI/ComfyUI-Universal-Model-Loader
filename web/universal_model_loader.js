@@ -20,11 +20,11 @@ const THEME = {
 };
 
 const BASE_GROUPS = {
-  checkpoint: new Set(["model_type", "checkpoint_name"]),
-  diffusers: new Set(["model_type", "diffusers_model_path"]),
-  diffusion_model: new Set(["model_type", "diffusion_model_name", "weight_dtype", "clip_name", "clip_type", "clip_device", "vae_name"]),
-  unet: new Set(["model_type", "diffusion_model_name", "weight_dtype", "clip_name", "clip_type", "clip_device", "vae_name"]),
-  gguf_unet: new Set(["model_type", "gguf_unet_name", "gguf_dequant_dtype", "gguf_patch_dtype", "gguf_patch_on_device", "clip_name", "clip_type", "clip_device", "vae_name"]),
+  checkpoint: new Set(["model_type", "checkpoint_name", "clip2_name", "vae2_name"]),
+  diffusers: new Set(["model_type", "diffusers_model_path", "clip2_name", "vae2_name"]),
+  diffusion_model: new Set(["model_type", "diffusion_model_name", "weight_dtype", "clip_name", "clip_type", "clip_device", "vae_name", "clip2_name", "vae2_name"]),
+  unet: new Set(["model_type", "diffusion_model_name", "weight_dtype", "clip_name", "clip_type", "clip_device", "vae_name", "clip2_name", "vae2_name"]),
+  gguf_unet: new Set(["model_type", "gguf_unet_name", "gguf_dequant_dtype", "gguf_patch_dtype", "gguf_patch_on_device", "clip_name", "clip_type", "clip_device", "vae_name", "clip2_name", "vae2_name"]),
 };
 
 function selected(node, name, fallback) {
@@ -92,20 +92,36 @@ function recommendedClipType(hint) {
 }
 
 function applyLinkedDefaults(node) {
-  const clipType = widget(node, "clip_type");
-  if (!clipType) return;
-
   const suggested = recommendedClipType(modelHint(node));
-  const values = clipType.options?.values || clipType.options?.items || clipType.values;
-  const supportsSuggested = !Array.isArray(values) || values.includes(suggested);
-  if (supportsSuggested && (clipType.value === "auto" || clipType.value === "stable_diffusion" || !clipType.value)) {
-    clipType.value = suggested;
+  for (const name of ["clip_type", "clip2_type"]) {
+    const clipType = widget(node, name);
+    if (!clipType) continue;
+    const values = clipType.options?.values || clipType.options?.items || clipType.values;
+    const supportsSuggested = !Array.isArray(values) || values.includes(suggested);
+    if (supportsSuggested && (clipType.value === "auto" || clipType.value === "stable_diffusion" || !clipType.value)) {
+      clipType.value = suggested;
+    }
+  }
+}
+
+function normalizeOptionalSelector(node, name) {
+  const w = widget(node, name);
+  if (!w) return;
+  const values = w.options?.values || w.options?.items || w.values;
+  if (!Array.isArray(values) || !values.includes("none")) return;
+  if (w.value === undefined || w.value === null || w.value === "" || w.value === "— none found —") {
+    w.value = "none";
   }
 }
 
 function visibleWidgets(node) {
   const modelType = selected(node, "model_type", "checkpoint");
-  return new Set(BASE_GROUPS[modelType] || BASE_GROUPS.checkpoint);
+  const visible = new Set(BASE_GROUPS[modelType] || BASE_GROUPS.checkpoint);
+  if (selected(node, "clip2_name", "none") !== "none") {
+    visible.add("clip2_type");
+    visible.add("clip2_device");
+  }
+  return visible;
 }
 
 function graphToScreen(node, x, y) {
@@ -133,6 +149,7 @@ function showUsageInfo(node) {
     <p>Select <code>model_type</code>; only matching fields are shown.</p>
     <p><b>Checkpoint/Diffusers</b>: load MODEL, CLIP and VAE from the selected package.</p>
     <p><b>UNet/GGUF</b>: load diffusion MODEL plus CLIP and VAE from this node.</p>
+    <p><b>Extra outputs</b>: optional <code>clip2</code> and <code>vae2</code> can be set to <code>none</code>.</p>
     <p>Krea2/KR2 models auto-select CLIP type <code>krea2</code>.</p>
   `;
   Object.assign(panel.style, {
@@ -201,6 +218,8 @@ function applyTheme(node) {
 }
 
 function updateNode(node, forceInitialWidth = false) {
+  normalizeOptionalSelector(node, "clip2_name");
+  normalizeOptionalSelector(node, "vae2_name");
   applyLinkedDefaults(node);
   const visible = visibleWidgets(node);
   const widthBefore = Array.isArray(node.size) ? node.size[0] : INITIAL_WIDTH;
@@ -254,6 +273,7 @@ function patchLiveWidgets(node) {
   patchCallback(node, "model_type");
   patchCallback(node, "diffusion_model_name");
   patchCallback(node, "gguf_unet_name");
+  patchCallback(node, "clip2_name");
 }
 
 app.registerExtension({
