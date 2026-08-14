@@ -52,7 +52,7 @@ CLIP_TYPE_HINTS = [
     ("boogu", ("boogu", "boog", "[boog]")),
     ("joyimage", ("joyimage", "joy-image", "joy image", "[joy]")),
     ("mage", ("mage", "[mage]")),
-    ("minimax", ("minimax", "mini-max", "mini max")),
+    ("minimax", ("minimax", "mini-max", "mini max", "music3", "music-3", "music_3", "mm3", "[mm3]", "rvq", "qwen-rvq", "qwen_rvq")),
     ("longcat_image", ("longcat_image", "longcat-image", "longcat image", "long-cat", "long cat")),
     ("pixeldit", ("pixeldit", "pixel-dit", "pixel dit")),
     ("omnigen2", ("omnigen2", "omnigen-2", "omnigen 2")),
@@ -167,7 +167,7 @@ def _recommended_clip_type(model_hint):
     hint = model_hint.lower()
     normalized = hint.replace("\\", "/").replace("_", "-")
     padded = f"/{normalized}/"
-    short_codes = {"kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo"}
+    short_codes = {"kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"}
     for clip_type, markers in CLIP_TYPE_HINTS:
         for marker in markers:
             marker = marker.lower()

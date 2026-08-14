@@ -50,7 +50,7 @@ const CLIP_TYPE_HINTS = [
   ["boogu", ["boogu", "boog", "[boog]"]],
   ["joyimage", ["joyimage", "joy-image", "joy image", "[joy]"]],
   ["mage", ["mage", "[mage]"]],
-  ["minimax", ["minimax", "mini-max", "mini max"]],
+  ["minimax", ["minimax", "mini-max", "mini max", "music3", "music-3", "music_3", "mm3", "[mm3]", "rvq", "qwen-rvq", "qwen_rvq"]],
   ["longcat_image", ["longcat_image", "longcat-image", "longcat image", "long-cat", "long cat"]],
   ["pixeldit", ["pixeldit", "pixel-dit", "pixel dit"]],
   ["omnigen2", ["omnigen2", "omnigen-2", "omnigen 2"]],
@@ -76,7 +76,7 @@ function recommendedClipType(hint) {
   const lower = String(hint || "").toLowerCase();
   const normalized = lower.replaceAll("\\\\", "/").replaceAll("_", "-");
   const padded = `/${normalized}/`;
-  const shortCodes = new Set(["kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo"]);
+  const shortCodes = new Set(["kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"]);
   for (const [clipType, markers] of CLIP_TYPE_HINTS) {
     for (const marker of markers) {
       const markerKey = marker.replace(/^\[/, "").replace(/\]$/, "").replaceAll("_", "-");
