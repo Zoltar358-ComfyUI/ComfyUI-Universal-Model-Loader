@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.0.7
+Version: 1.0.8
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
@@ -101,6 +101,8 @@ Version 1.0.5 makes the optional VAE selector easier to see by placing `vae2_nam
 Version 1.0.6 improves compatibility with latest MiniMax Music3 naming by auto-selecting ComfyUI CLIP type `minimax` for `MM3`, `Music3`, `RVQ`, and `qwen-rvq` file/folder hints. For Music3 workflows, pair the loaded MODEL/CLIP/VAE with ComfyUI's built-in **MiniMax Music3 Text Encode** and **Empty MiniMax Music3 Latent Audio** nodes.
 
 Version 1.0.7 fixes saved workflow/image metadata for dynamic model modes. Inactive hidden model selectors now serialize as `null`, so PNG workflow metadata exposes the model selected by `model_type` instead of the first checkpoint list entry.
+
+Version 1.0.8 fixes the `1.0.7` queue-time regression: inactive hidden model selectors still write `null` into saved workflow metadata, but return their real valid widget values to ComfyUI's execution serializer so queued prompts are not rejected as invalid input.
 
 ## Notes
 

@@ -234,7 +234,7 @@ function patchModelSelectorSerialization(node, widget) {
     if (this.name === activeSelector) return serialized;
 
     if (workflowNode?.widgets_values) workflowNode.widgets_values[widgetIndex] = null;
-    return null;
+    return serialized;
   };
 }
 
