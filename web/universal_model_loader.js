@@ -27,6 +27,16 @@ const BASE_GROUPS = {
   gguf_unet: new Set(["model_type", "gguf_unet_name", "gguf_dequant_dtype", "gguf_patch_dtype", "gguf_patch_on_device", "clip_name", "clip_type", "clip_device", "vae_name", "clip2_name", "vae2_name"]),
 };
 
+const MODEL_SELECTOR_BY_TYPE = {
+  checkpoint: "checkpoint_name",
+  diffusers: "diffusers_model_path",
+  diffusion_model: "diffusion_model_name",
+  unet: "diffusion_model_name",
+  gguf_unet: "gguf_unet_name",
+};
+
+const MODEL_SELECTOR_WIDGETS = new Set(Object.values(MODEL_SELECTOR_BY_TYPE));
+
 function selected(node, name, fallback) {
   return String(node.widgets?.find((w) => w.name === name)?.value ?? fallback);
 }
@@ -210,6 +220,24 @@ function setWidgetVisible(widget, show) {
   styleWidget(widget);
 }
 
+function patchModelSelectorSerialization(node, widget) {
+  if (!MODEL_SELECTOR_WIDGETS.has(widget.name) || widget._umlSerializePatched) return;
+  widget._umlSerializePatched = true;
+  const originalSerializeValue = widget.serializeValue;
+  widget.serializeValue = function(workflowNode, widgetIndex) {
+    const modelType = selected(node, "model_type", "checkpoint");
+    const activeSelector = MODEL_SELECTOR_BY_TYPE[modelType] || "checkpoint_name";
+    const serialized = originalSerializeValue
+      ? originalSerializeValue.call(this, workflowNode, widgetIndex)
+      : this.value;
+
+    if (this.name === activeSelector) return serialized;
+
+    if (workflowNode?.widgets_values) workflowNode.widgets_values[widgetIndex] = null;
+    return null;
+  };
+}
+
 function applyTheme(node) {
   node.color = THEME.header;
   node.bgcolor = THEME.body;
@@ -226,6 +254,7 @@ function updateNode(node, forceInitialWidth = false) {
   applyTheme(node);
 
   for (const w of node.widgets || []) {
+    patchModelSelectorSerialization(node, w);
     setWidgetVisible(w, visible.has(w.name));
   }
 
