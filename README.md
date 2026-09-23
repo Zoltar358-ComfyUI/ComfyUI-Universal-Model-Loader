@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.0.8
+Version: 1.1.0
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
@@ -81,7 +81,7 @@ The node uses a purple/dark-teal theme matching the screenshot you provided. The
 
 Optional `clip2` and `vae2` selectors default to `none`, so existing one-CLIP/one-VAE workflows remain simple. Select a second text encoder or VAE only for model families/workflows that require one.
 
-Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax/MiniMax Music3/MM3/RVQ, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
+Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image/Qwen Image 2.1/QWN2, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax/MiniMax Music3/MM3/RVQ, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
 
 ## 1.0.2 Node Pack Info update
 
@@ -103,6 +103,8 @@ Version 1.0.6 improves compatibility with latest MiniMax Music3 naming by auto-s
 Version 1.0.7 fixes saved workflow/image metadata for dynamic model modes. Inactive hidden model selectors now serialize as `null`, so PNG workflow metadata exposes the model selected by `model_type` instead of the first checkpoint list entry.
 
 Version 1.0.8 fixes the `1.0.7` queue-time regression: inactive hidden model selectors still write `null` into saved workflow metadata, but return their real valid widget values to ComfyUI's execution serializer so queued prompts are not rejected as invalid input.
+
+Version 1.1.0 adds Qwen Image 2.1/QWN2 support: `QWN2`, `Qwen Image 2.1`, `qwen_image_2.1`, and related filename hints auto-select CLIP type `qwen_image`, and Qwen Image 2.1 model-only loads prefer the matching 2.1 VAE when it is installed.
 
 ## Notes
 

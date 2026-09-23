@@ -46,7 +46,7 @@ GGUF_DTYPES = ["default", "target", "float32", "float16", "bfloat16"]
 
 CLIP_TYPE_HINTS = [
     ("krea2", ("krea2", "krea-2", "krea_2", "kr2", "[kr2]")),
-    ("qwen_image", ("qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]")),
+    ("qwen_image", ("qwen_image_2.1", "qwen-image-2.1", "qwen image 2.1", "qwen2.1", "qwen-2.1", "qwen_2.1", "qwn2", "[qwn2]", "qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]")),
     ("hunyuan_image", ("hunyuan_image", "hunyuan-image", "hunyuan image", "hunyuan")),
     ("ideogram4", ("ideogram4", "ideogram-4", "ideogram 4", "ideo4", "[ideo]")),
     ("boogu", ("boogu", "boog", "[boog]")),
@@ -167,7 +167,7 @@ def _recommended_clip_type(model_hint):
     hint = model_hint.lower()
     normalized = hint.replace("\\", "/").replace("_", "-")
     padded = f"/{normalized}/"
-    short_codes = {"kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"}
+    short_codes = {"kr2", "qwen", "qwn2", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"}
     for clip_type, markers in CLIP_TYPE_HINTS:
         for marker in markers:
             marker = marker.lower()
@@ -206,6 +206,45 @@ def _optional_vae_names():
     except Exception:
         names = [name for name in _filename_list("vae") if name != NONE_ITEM]
     return (["none", *names], {"default": "none", "tooltip": "Optional second VAE output. Select none when only one VAE is needed."})
+
+
+def _is_qwen_image21_hint(model_hint):
+    normalized = model_hint.lower().replace("\\", "/").replace("_", "-")
+    padded = f"/{normalized}/"
+    return (
+        "qwen image 2.1" in normalized
+        or "qwen-image-2.1" in normalized
+        or "qwen2.1" in normalized
+        or "qwen-2.1" in normalized
+        or "qwen-image21" in normalized
+        or "qwenimage21" in normalized
+        or "qwen-image-21" in normalized
+        or "/qwn2/" in padded
+        or normalized.startswith("qwn2/")
+        or "[qwn2]" in normalized
+    )
+
+
+def _recommended_vae_name(model_hint, current_vae_name=None):
+    try:
+        vae_names = list(COMFY_NODES.VAELoader.vae_list(COMFY_NODES.VAELoader))
+    except Exception:
+        vae_names = [name for name in _filename_list("vae") if name != NONE_ITEM]
+
+    def first_matching(*markers):
+        for name in vae_names:
+            normalized = name.lower().replace("\\", "/").replace("_", "-")
+            if all(marker in normalized for marker in markers):
+                return name
+        return None
+
+    if _is_qwen_image21_hint(model_hint):
+        return first_matching("qwen", "2.1") or first_matching("qwn2", "vae") or current_vae_name
+
+    if _recommended_clip_type(model_hint) == "qwen_image" or _is_krea2_hint(model_hint):
+        return first_matching("qwen", "image", "vae") or current_vae_name
+
+    return current_vae_name
 
 
 def _require_choice(kind, value):
@@ -247,7 +286,8 @@ def _load_optional_clip(model_hint, clip_name, clip_type, clip_device):
     return _load_clip(model_hint, clip_name, clip_type, clip_device)
 
 
-def _load_vae(vae_name):
+def _load_vae(vae_name, model_hint=""):
+    vae_name = _recommended_vae_name(model_hint, vae_name) or vae_name
     _require_choice("vae", vae_name)
     return COMFY_NODES.VAELoader().load_vae(vae_name)[0]
 
@@ -263,8 +303,9 @@ def _resolve_aux_models(model_type, model_hint, clip_name, clip_type, clip_devic
         return None, None, []
 
     clip, resolved_clip_type = _load_clip(model_hint, clip_name, clip_type, clip_device)
-    vae = _load_vae(vae_name)
-    loaded = [f"clip: {clip_name} ({resolved_clip_type})", f"vae: {vae_name}"]
+    resolved_vae_name = _recommended_vae_name(model_hint, vae_name) or vae_name
+    vae = _load_vae(resolved_vae_name, model_hint)
+    loaded = [f"clip: {clip_name} ({resolved_clip_type})", f"vae: {resolved_vae_name}"]
     return clip, vae, loaded
 
 

@@ -54,7 +54,7 @@ function modelHint(node) {
 
 const CLIP_TYPE_HINTS = [
   ["krea2", ["krea2", "krea-2", "krea_2", "kr2", "[kr2]"]],
-  ["qwen_image", ["qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]"]],
+  ["qwen_image", ["qwen_image_2.1", "qwen-image-2.1", "qwen image 2.1", "qwen2.1", "qwen-2.1", "qwen_2.1", "qwn2", "[qwn2]", "qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]"]],
   ["hunyuan_image", ["hunyuan_image", "hunyuan-image", "hunyuan image", "hunyuan"]],
   ["ideogram4", ["ideogram4", "ideogram-4", "ideogram 4", "ideo4", "[ideo]"]],
   ["boogu", ["boogu", "boog", "[boog]"]],
@@ -86,7 +86,7 @@ function recommendedClipType(hint) {
   const lower = String(hint || "").toLowerCase();
   const normalized = lower.replaceAll("\\\\", "/").replaceAll("_", "-");
   const padded = `/${normalized}/`;
-  const shortCodes = new Set(["kr2", "qwen", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"]);
+  const shortCodes = new Set(["kr2", "qwen", "qwn2", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"]);
   for (const [clipType, markers] of CLIP_TYPE_HINTS) {
     for (const marker of markers) {
       const markerKey = marker.replace(/^\[/, "").replace(/\]$/, "").replaceAll("_", "-");
@@ -101,8 +101,42 @@ function recommendedClipType(hint) {
   return "auto";
 }
 
+function isQwenImage21Hint(hint) {
+  const normalized = String(hint || "").toLowerCase().replaceAll("\\\\", "/").replaceAll("_", "-");
+  const padded = `/${normalized}/`;
+  return normalized.includes("qwen image 2.1")
+    || normalized.includes("qwen-image-2.1")
+    || normalized.includes("qwen2.1")
+    || normalized.includes("qwen-2.1")
+    || normalized.includes("qwen-image21")
+    || normalized.includes("qwenimage21")
+    || normalized.includes("qwen-image-21")
+    || padded.includes("/qwn2/")
+    || normalized.startsWith("qwn2/")
+    || normalized.includes("[qwn2]");
+}
+
+function findVaeOption(values, ...markers) {
+  if (!Array.isArray(values)) return null;
+  return values.find((value) => {
+    const normalized = String(value || "").toLowerCase().replaceAll("\\\\", "/").replaceAll("_", "-");
+    return markers.every((marker) => normalized.includes(marker));
+  }) || null;
+}
+
+function recommendedVaeName(hint, values, current) {
+  if (isQwenImage21Hint(hint)) {
+    return findVaeOption(values, "qwen", "2.1") || findVaeOption(values, "qwn2", "vae") || current;
+  }
+  if (recommendedClipType(hint) === "qwen_image") {
+    return findVaeOption(values, "qwen", "image", "vae") || current;
+  }
+  return current;
+}
+
 function applyLinkedDefaults(node) {
-  const suggested = recommendedClipType(modelHint(node));
+  const hint = modelHint(node);
+  const suggested = recommendedClipType(hint);
   for (const name of ["clip_type", "clip2_type"]) {
     const clipType = widget(node, name);
     if (!clipType) continue;
@@ -110,6 +144,16 @@ function applyLinkedDefaults(node) {
     const supportsSuggested = !Array.isArray(values) || values.includes(suggested);
     if (supportsSuggested && (clipType.value === "auto" || clipType.value === "stable_diffusion" || !clipType.value)) {
       clipType.value = suggested;
+    }
+  }
+
+  const vae = widget(node, "vae_name");
+  const vaeValues = vae?.options?.values || vae?.options?.items || vae?.values;
+  const suggestedVae = recommendedVaeName(hint, vaeValues, vae?.value);
+  if (vae && suggestedVae && suggestedVae !== vae.value && Array.isArray(vaeValues) && vaeValues.includes(suggestedVae)) {
+    const current = String(vae.value || "").toLowerCase().replaceAll("\\\\", "/").replaceAll("_", "-");
+    if (!current.includes("qwen") || isQwenImage21Hint(hint)) {
+      vae.value = suggestedVae;
     }
   }
 }
