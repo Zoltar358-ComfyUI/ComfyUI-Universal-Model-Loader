@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.1.0
+Version: 1.2.0
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
@@ -82,6 +82,28 @@ The node uses a purple/dark-teal theme matching the screenshot you provided. The
 Optional `clip2` and `vae2` selectors default to `none`, so existing one-CLIP/one-VAE workflows remain simple. Select a second text encoder or VAE only for model families/workflows that require one.
 
 Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image/Qwen Image 2.1/QWN2, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax/MiniMax Music3/MM3/RVQ, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
+
+## 1.2.0: reliable automatic CLIP selection
+
+- `auto` stays selected and resolves on **every execution**, including after model changes and workflow reloads. Resolution is shared by primary and secondary encoders: a specific encoder-family hint, then the loaded model's supported configuration class, then the model filename/path. Generic Qwen names alone are ambiguous and require an explicit type if no family context is available.
+- Explicit CLIP types (including `stable_diffusion`) are never rewritten. Known automatic families unavailable in the installed core produce an actionable error instead of silently using a wrong type. Unknown names without a specific family use the historical `stable_diffusion` fallback; choose manually when that is not appropriate.
+- Token-aware matching handles Windows paths, tags and underscored names without matching `mage` inside `image` or `wan` inside `swan`. Adds YuE2 and uses the installed core's supported type list.
+- VAE selection is now strictly explicit: neither the UI nor backend replaces your selected VAE. **For Qwen Image 2.1, select its matching 2.1 VAE yourself.** This supersedes the 1.1.0 automatic VAE heuristic and removes redundant VAE discovery scans.
+- Removed duplicate frontend family heuristics; compiled backend patterns and cached supported-type discovery reduce repeated work. No model-weight caching or inference changes.
+- Output socket order and widget order are unchanged. Hidden selectors still return valid execution values while clearing inactive saved metadata.
+
+**Existing workflows:** old versions may have saved a concrete CLIP type after automatic selection. Select `auto` again to enable dynamic resolution; existing concrete values are deliberately treated as manual selections. `clip2` is an independent CLIP output, not a replacement for ComfyUI's DualCLIPLoader combined encoder.
+
+### Regression checks
+
+```bash
+python -m unittest discover -s tests -v
+node --test tests/frontend.test.mjs
+# Optional installed-core contract check (no weight loading or inference):
+/path/to/ComfyUI/venv/bin/python tests/core_integration.py /path/to/ComfyUI
+```
+
+The core check imports the real node schema/config classes and exercises the real CLIPLoader with weight I/O mocked. These tests do not claim end-to-end generation coverage.
 
 ## 1.0.2 Node Pack Info update
 

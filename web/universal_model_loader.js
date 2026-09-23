@@ -45,119 +45,6 @@ function widget(node, name) {
   return node.widgets?.find((w) => w.name === name);
 }
 
-function modelHint(node) {
-  const modelType = selected(node, "model_type", "checkpoint");
-  if (modelType === "gguf_unet") return selected(node, "gguf_unet_name", "");
-  if (["diffusion_model", "unet"].includes(modelType)) return selected(node, "diffusion_model_name", "");
-  return "";
-}
-
-const CLIP_TYPE_HINTS = [
-  ["krea2", ["krea2", "krea-2", "krea_2", "kr2", "[kr2]"]],
-  ["qwen_image", ["qwen_image_2.1", "qwen-image-2.1", "qwen image 2.1", "qwen2.1", "qwen-2.1", "qwen_2.1", "qwn2", "[qwn2]", "qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]"]],
-  ["hunyuan_image", ["hunyuan_image", "hunyuan-image", "hunyuan image", "hunyuan"]],
-  ["ideogram4", ["ideogram4", "ideogram-4", "ideogram 4", "ideo4", "[ideo]"]],
-  ["boogu", ["boogu", "boog", "[boog]"]],
-  ["joyimage", ["joyimage", "joy-image", "joy image", "[joy]"]],
-  ["mage", ["mage", "[mage]"]],
-  ["minimax", ["minimax", "mini-max", "mini max", "music3", "music-3", "music_3", "mm3", "[mm3]", "rvq", "qwen-rvq", "qwen_rvq"]],
-  ["longcat_image", ["longcat_image", "longcat-image", "longcat image", "long-cat", "long cat"]],
-  ["pixeldit", ["pixeldit", "pixel-dit", "pixel dit"]],
-  ["omnigen2", ["omnigen2", "omnigen-2", "omnigen 2"]],
-  ["flux2", ["flux2", "flux-2", "flux.2", "flux 2", "fk9", "[fk9]"]],
-  ["wan", ["wan", "wan2", "wan-2", "wan 2", "[wan]"]],
-  ["hidream", ["hidream", "hi-dream", "hi dream"]],
-  ["chroma", ["chroma"]],
-  ["ovis", ["ovis"]],
-  ["lens", ["lens"]],
-  ["cogvideox", ["cogvideox", "cogvideo-x", "cogvideo x"]],
-  ["cosmos", ["cosmos"]],
-  ["ltxv", ["ltxv", "ltx-video", "ltx video"]],
-  ["mochi", ["mochi"]],
-  ["pixart", ["pixart", "pix-art"]],
-  ["lumina2", ["lumina2", "lumina-2", "lumina 2"]],
-  ["ace", ["ace"]],
-  ["sd3", ["sd3", "sd-3", "stable diffusion 3", "stable-diffusion-3"]],
-  ["stable_audio", ["stable_audio", "stable-audio", "stable audio"]],
-  ["stable_cascade", ["stable_cascade", "stable-cascade", "stable cascade"]],
-];
-
-function recommendedClipType(hint) {
-  const lower = String(hint || "").toLowerCase();
-  const normalized = lower.replaceAll("\\\\", "/").replaceAll("_", "-");
-  const padded = `/${normalized}/`;
-  const shortCodes = new Set(["kr2", "qwen", "qwn2", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"]);
-  for (const [clipType, markers] of CLIP_TYPE_HINTS) {
-    for (const marker of markers) {
-      const markerKey = marker.replace(/^\[/, "").replace(/\]$/, "").replaceAll("_", "-");
-      if (marker.startsWith("[") && lower.includes(marker)) return clipType;
-      if (shortCodes.has(markerKey)) {
-        if (padded.includes(`/${markerKey}/`) || normalized.startsWith(`${markerKey}/`)) return clipType;
-        continue;
-      }
-      if (lower.includes(marker) || normalized.includes(markerKey)) return clipType;
-    }
-  }
-  return "auto";
-}
-
-function isQwenImage21Hint(hint) {
-  const normalized = String(hint || "").toLowerCase().replaceAll("\\\\", "/").replaceAll("_", "-");
-  const padded = `/${normalized}/`;
-  return normalized.includes("qwen image 2.1")
-    || normalized.includes("qwen-image-2.1")
-    || normalized.includes("qwen2.1")
-    || normalized.includes("qwen-2.1")
-    || normalized.includes("qwen-image21")
-    || normalized.includes("qwenimage21")
-    || normalized.includes("qwen-image-21")
-    || padded.includes("/qwn2/")
-    || normalized.startsWith("qwn2/")
-    || normalized.includes("[qwn2]");
-}
-
-function findVaeOption(values, ...markers) {
-  if (!Array.isArray(values)) return null;
-  return values.find((value) => {
-    const normalized = String(value || "").toLowerCase().replaceAll("\\\\", "/").replaceAll("_", "-");
-    return markers.every((marker) => normalized.includes(marker));
-  }) || null;
-}
-
-function recommendedVaeName(hint, values, current) {
-  if (isQwenImage21Hint(hint)) {
-    return findVaeOption(values, "qwen", "2.1") || findVaeOption(values, "qwn2", "vae") || current;
-  }
-  if (recommendedClipType(hint) === "qwen_image") {
-    return findVaeOption(values, "qwen", "image", "vae") || current;
-  }
-  return current;
-}
-
-function applyLinkedDefaults(node) {
-  const hint = modelHint(node);
-  const suggested = recommendedClipType(hint);
-  for (const name of ["clip_type", "clip2_type"]) {
-    const clipType = widget(node, name);
-    if (!clipType) continue;
-    const values = clipType.options?.values || clipType.options?.items || clipType.values;
-    const supportsSuggested = !Array.isArray(values) || values.includes(suggested);
-    if (supportsSuggested && (clipType.value === "auto" || clipType.value === "stable_diffusion" || !clipType.value)) {
-      clipType.value = suggested;
-    }
-  }
-
-  const vae = widget(node, "vae_name");
-  const vaeValues = vae?.options?.values || vae?.options?.items || vae?.values;
-  const suggestedVae = recommendedVaeName(hint, vaeValues, vae?.value);
-  if (vae && suggestedVae && suggestedVae !== vae.value && Array.isArray(vaeValues) && vaeValues.includes(suggestedVae)) {
-    const current = String(vae.value || "").toLowerCase().replaceAll("\\\\", "/").replaceAll("_", "-");
-    if (!current.includes("qwen") || isQwenImage21Hint(hint)) {
-      vae.value = suggestedVae;
-    }
-  }
-}
-
 function normalizeOptionalSelector(node, name) {
   const w = widget(node, name);
   if (!w) return;
@@ -204,7 +91,7 @@ function showUsageInfo(node) {
     <p><b>Checkpoint/Diffusers</b>: load MODEL, CLIP and VAE from the selected package.</p>
     <p><b>UNet/GGUF</b>: load diffusion MODEL plus CLIP and VAE from this node.</p>
     <p><b>Extra outputs</b>: optional <code>clip2</code> and <code>vae2</code> can be set to <code>none</code>.</p>
-    <p>Krea2/KR2 models auto-select CLIP type <code>krea2</code>.</p>
+    <p>Leave CLIP type on <code>auto</code> to resolve it at load time. Explicit CLIP types and VAE selections are preserved.</p>
   `;
   Object.assign(panel.style, {
     position: "fixed",
@@ -292,7 +179,6 @@ function applyTheme(node) {
 function updateNode(node, forceInitialWidth = false) {
   normalizeOptionalSelector(node, "clip2_name");
   normalizeOptionalSelector(node, "vae2_name");
-  applyLinkedDefaults(node);
   const visible = visibleWidgets(node);
   const widthBefore = Array.isArray(node.size) ? node.size[0] : INITIAL_WIDTH;
   applyTheme(node);

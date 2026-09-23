@@ -1,6 +1,7 @@
 import importlib
 from importlib import util as importlib_util
 import inspect
+from functools import lru_cache
 import os
 import sys
 
@@ -8,6 +9,8 @@ import torch
 
 import comfy.sd
 import folder_paths
+
+from .clip_auto import resolve_clip_type
 
 
 def _load_comfy_nodes_module():
@@ -43,37 +46,6 @@ NONE_ITEM = "— none found —"
 MODEL_TYPES = ["checkpoint", "diffusers", "diffusion_model", "unet", "gguf_unet"]
 MODEL_ONLY_TYPES = {"diffusion_model", "unet", "gguf_unet"}
 GGUF_DTYPES = ["default", "target", "float32", "float16", "bfloat16"]
-
-CLIP_TYPE_HINTS = [
-    ("krea2", ("krea2", "krea-2", "krea_2", "kr2", "[kr2]")),
-    ("qwen_image", ("qwen_image_2.1", "qwen-image-2.1", "qwen image 2.1", "qwen2.1", "qwen-2.1", "qwen_2.1", "qwn2", "[qwn2]", "qwen_image", "qwen-image", "qwenimage", "qwen image", "qwen", "[qwen]")),
-    ("hunyuan_image", ("hunyuan_image", "hunyuan-image", "hunyuan image", "hunyuan")),
-    ("ideogram4", ("ideogram4", "ideogram-4", "ideogram 4", "ideo4", "[ideo]")),
-    ("boogu", ("boogu", "boog", "[boog]")),
-    ("joyimage", ("joyimage", "joy-image", "joy image", "[joy]")),
-    ("mage", ("mage", "[mage]")),
-    ("minimax", ("minimax", "mini-max", "mini max", "music3", "music-3", "music_3", "mm3", "[mm3]", "rvq", "qwen-rvq", "qwen_rvq")),
-    ("longcat_image", ("longcat_image", "longcat-image", "longcat image", "long-cat", "long cat")),
-    ("pixeldit", ("pixeldit", "pixel-dit", "pixel dit")),
-    ("omnigen2", ("omnigen2", "omnigen-2", "omnigen 2")),
-    ("flux2", ("flux2", "flux-2", "flux.2", "flux 2", "fk9", "[fk9]")),
-    ("wan", ("wan", "wan2", "wan-2", "wan 2", "[wan]")),
-    ("hidream", ("hidream", "hi-dream", "hi dream")),
-    ("chroma", ("chroma",)),
-    ("ovis", ("ovis",)),
-    ("lens", ("lens",)),
-    ("cogvideox", ("cogvideox", "cogvideo-x", "cogvideo x")),
-    ("cosmos", ("cosmos",)),
-    ("ltxv", ("ltxv", "ltx-video", "ltx video")),
-    ("mochi", ("mochi",)),
-    ("pixart", ("pixart", "pix-art")),
-    ("lumina2", ("lumina2", "lumina-2", "lumina 2")),
-    ("ace", ("ace",)),
-    ("sd3", ("sd3", "sd-3", "stable diffusion 3", "stable-diffusion-3")),
-    ("stable_audio", ("stable_audio", "stable-audio", "stable audio")),
-    ("stable_cascade", ("stable_cascade", "stable-cascade", "stable cascade")),
-]
-
 
 def _folder_paths(folder_key):
     try:
@@ -135,11 +107,13 @@ def _clip_types():
     return (clip_types, {"default": "auto"})
 
 
+@lru_cache(maxsize=1)
 def _available_clip_types():
+    # Core schemas are stable for a process; avoid rescanning encoder folders per load.
     try:
-        return set(COMFY_NODES.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
+        return frozenset(COMFY_NODES.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
     except Exception:
-        return {"stable_diffusion"}
+        return frozenset({"stable_diffusion"})
 
 
 def _weight_dtypes():
@@ -147,50 +121,6 @@ def _weight_dtypes():
         return list(COMFY_NODES.UNETLoader.INPUT_TYPES()["required"]["weight_dtype"][0])
     except Exception:
         return ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"]
-
-
-def _is_krea2_hint(hint):
-    hint = hint.lower()
-    tokens = hint.replace("\\", "/").replace("_", "-")
-    return (
-        "krea2" in hint
-        or "krea-2" in hint
-        or "krea_2" in hint
-        or tokens.startswith("kr2/")
-        or "/kr2/" in tokens
-        or "[kr2]" in hint
-        or " kr2" in hint
-    )
-
-
-def _recommended_clip_type(model_hint):
-    hint = model_hint.lower()
-    normalized = hint.replace("\\", "/").replace("_", "-")
-    padded = f"/{normalized}/"
-    short_codes = {"kr2", "qwen", "qwn2", "wan", "ace", "sd3", "mage", "boog", "joy", "fk9", "ideo", "mm3", "rvq"}
-    for clip_type, markers in CLIP_TYPE_HINTS:
-        for marker in markers:
-            marker = marker.lower()
-            marker_key = marker.strip("[]").replace("_", "-")
-            if marker.startswith("[") and marker in hint:
-                return clip_type
-            if marker_key in short_codes:
-                if f"/{marker_key}/" in padded or normalized.startswith(f"{marker_key}/"):
-                    return clip_type
-                continue
-            if marker in hint or marker_key in normalized:
-                return clip_type
-    return "stable_diffusion"
-
-
-def _effective_clip_type(model_hint, clip_type):
-    if clip_type != "auto" and not (clip_type == "stable_diffusion" and _is_krea2_hint(model_hint)):
-        return clip_type
-
-    recommended = _recommended_clip_type(model_hint)
-    if recommended in _available_clip_types():
-        return recommended
-    return "stable_diffusion"
 
 
 def _vae_names():
@@ -206,45 +136,6 @@ def _optional_vae_names():
     except Exception:
         names = [name for name in _filename_list("vae") if name != NONE_ITEM]
     return (["none", *names], {"default": "none", "tooltip": "Optional second VAE output. Select none when only one VAE is needed."})
-
-
-def _is_qwen_image21_hint(model_hint):
-    normalized = model_hint.lower().replace("\\", "/").replace("_", "-")
-    padded = f"/{normalized}/"
-    return (
-        "qwen image 2.1" in normalized
-        or "qwen-image-2.1" in normalized
-        or "qwen2.1" in normalized
-        or "qwen-2.1" in normalized
-        or "qwen-image21" in normalized
-        or "qwenimage21" in normalized
-        or "qwen-image-21" in normalized
-        or "/qwn2/" in padded
-        or normalized.startswith("qwn2/")
-        or "[qwn2]" in normalized
-    )
-
-
-def _recommended_vae_name(model_hint, current_vae_name=None):
-    try:
-        vae_names = list(COMFY_NODES.VAELoader.vae_list(COMFY_NODES.VAELoader))
-    except Exception:
-        vae_names = [name for name in _filename_list("vae") if name != NONE_ITEM]
-
-    def first_matching(*markers):
-        for name in vae_names:
-            normalized = name.lower().replace("\\", "/").replace("_", "-")
-            if all(marker in normalized for marker in markers):
-                return name
-        return None
-
-    if _is_qwen_image21_hint(model_hint):
-        return first_matching("qwen", "2.1") or first_matching("qwn2", "vae") or current_vae_name
-
-    if _recommended_clip_type(model_hint) == "qwen_image" or _is_krea2_hint(model_hint):
-        return first_matching("qwen", "image", "vae") or current_vae_name
-
-    return current_vae_name
 
 
 def _require_choice(kind, value):
@@ -273,21 +164,20 @@ def _load_diffusers(model_path):
     )[:3]
 
 
-def _load_clip(model_hint, clip_name, clip_type, clip_device):
+def _load_clip(model_hint, clip_name, clip_type, clip_device, model=None):
     _require_choice("text_encoders", clip_name)
     device = "cpu" if clip_device == "cpu" else "default"
-    resolved_clip_type = _effective_clip_type(model_hint, clip_type)
+    resolved_clip_type = resolve_clip_type(model_hint, clip_type, clip_name, _available_clip_types(), model)
     return COMFY_NODES.CLIPLoader().load_clip(clip_name, resolved_clip_type, device)[0], resolved_clip_type
 
 
-def _load_optional_clip(model_hint, clip_name, clip_type, clip_device):
+def _load_optional_clip(model_hint, clip_name, clip_type, clip_device, model=None):
     if not clip_name or clip_name in ("none", NONE_ITEM):
         return None, None
-    return _load_clip(model_hint, clip_name, clip_type, clip_device)
+    return _load_clip(model_hint, clip_name, clip_type, clip_device, model)
 
 
-def _load_vae(vae_name, model_hint=""):
-    vae_name = _recommended_vae_name(model_hint, vae_name) or vae_name
+def _load_vae(vae_name):
     _require_choice("vae", vae_name)
     return COMFY_NODES.VAELoader().load_vae(vae_name)[0]
 
@@ -298,19 +188,18 @@ def _load_optional_vae(vae_name):
     return _load_vae(vae_name)
 
 
-def _resolve_aux_models(model_type, model_hint, clip_name, clip_type, clip_device, vae_name):
+def _resolve_aux_models(model_type, model_hint, clip_name, clip_type, clip_device, vae_name, model=None):
     if model_type not in MODEL_ONLY_TYPES:
         return None, None, []
 
-    clip, resolved_clip_type = _load_clip(model_hint, clip_name, clip_type, clip_device)
-    resolved_vae_name = _recommended_vae_name(model_hint, vae_name) or vae_name
-    vae = _load_vae(resolved_vae_name, model_hint)
-    loaded = [f"clip: {clip_name} ({resolved_clip_type})", f"vae: {resolved_vae_name}"]
+    clip, resolved_clip_type = _load_clip(model_hint, clip_name, clip_type, clip_device, model)
+    vae = _load_vae(vae_name)
+    loaded = [f"clip: {clip_name} ({resolved_clip_type})", f"vae: {vae_name}"]
     return clip, vae, loaded
 
 
-def _resolve_optional_aux_models(model_hint, clip2_name, clip2_type, clip2_device, vae2_name):
-    clip2, resolved_clip2_type = _load_optional_clip(model_hint, clip2_name, clip2_type, clip2_device)
+def _resolve_optional_aux_models(model_hint, clip2_name, clip2_type, clip2_device, vae2_name, model=None):
+    clip2, resolved_clip2_type = _load_optional_clip(model_hint, clip2_name, clip2_type, clip2_device, model)
     vae2 = _load_optional_vae(vae2_name)
     loaded = []
     if clip2 is not None:
@@ -440,7 +329,7 @@ class UniversalModelLoader:
                 output_clip=True,
                 embedding_directory=folder_paths.get_folder_paths("embeddings"),
             )[:3]
-            clip2, vae2, extra_info = _resolve_optional_aux_models(checkpoint_name, clip2_name, clip2_type, clip2_device, vae2_name)
+            clip2, vae2, extra_info = _resolve_optional_aux_models(checkpoint_name, clip2_name, clip2_type, clip2_device, vae2_name, model)
             info = f"checkpoint: {checkpoint_name}"
             if extra_info:
                 info += " | " + " | ".join(extra_info)
@@ -448,7 +337,7 @@ class UniversalModelLoader:
 
         if model_type == "diffusers":
             model, clip, vae = _load_diffusers(diffusers_model_path)
-            clip2, vae2, extra_info = _resolve_optional_aux_models(diffusers_model_path, clip2_name, clip2_type, clip2_device, vae2_name)
+            clip2, vae2, extra_info = _resolve_optional_aux_models(diffusers_model_path, clip2_name, clip2_type, clip2_device, vae2_name, model)
             info = f"diffusers: {diffusers_model_path}"
             if extra_info:
                 info += " | " + " | ".join(extra_info)
@@ -457,8 +346,8 @@ class UniversalModelLoader:
         if model_type in ("diffusion_model", "unet"):
             _require_choice("diffusion_models", diffusion_model_name)
             model = COMFY_NODES.UNETLoader().load_unet(diffusion_model_name, weight_dtype)[0]
-            clip, vae, aux_info = _resolve_aux_models(model_type, diffusion_model_name, clip_name, clip_type, clip_device, vae_name)
-            clip2, vae2, extra_info = _resolve_optional_aux_models(diffusion_model_name, clip2_name, clip2_type, clip2_device, vae2_name)
+            clip, vae, aux_info = _resolve_aux_models(model_type, diffusion_model_name, clip_name, clip_type, clip_device, vae_name, model)
+            clip2, vae2, extra_info = _resolve_optional_aux_models(diffusion_model_name, clip2_name, clip2_type, clip2_device, vae2_name, model)
             info = f"{model_type}: {diffusion_model_name}"
             all_info = [*aux_info, *extra_info]
             if all_info:
@@ -467,8 +356,8 @@ class UniversalModelLoader:
 
         if model_type == "gguf_unet":
             model = _load_gguf_unet(gguf_unet_name, gguf_dequant_dtype, gguf_patch_dtype, gguf_patch_on_device)
-            clip, vae, aux_info = _resolve_aux_models(model_type, gguf_unet_name, clip_name, clip_type, clip_device, vae_name)
-            clip2, vae2, extra_info = _resolve_optional_aux_models(gguf_unet_name, clip2_name, clip2_type, clip2_device, vae2_name)
+            clip, vae, aux_info = _resolve_aux_models(model_type, gguf_unet_name, clip_name, clip_type, clip_device, vae_name, model)
+            clip2, vae2, extra_info = _resolve_optional_aux_models(gguf_unet_name, clip2_name, clip2_type, clip2_device, vae2_name, model)
             info = f"gguf_unet: {gguf_unet_name}"
             all_info = [*aux_info, *extra_info]
             if all_info:
