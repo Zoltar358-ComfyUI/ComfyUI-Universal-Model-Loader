@@ -55,6 +55,39 @@ test('inactive metadata is null but execution serializer remains valid', async (
   }
 });
 
+test('legacy graph migration preserves every edge and is idempotent', () => {
+  for (const count of [4, 6]) for (const objects of [false, true]) {
+    const names = ['model', 'clip', 'vae', 'loaded_info', 'clip2', 'vae2'].slice(0, count);
+    const graph = { nodes: [{ id: 7, type: 'UniversalModelLoader', outputs: names.map((name, i) => ({ name, slot_index: i, links: [100+i] })) }], links: names.map((_, i) => objects ? ({ id: 100+i, origin_id: 7, origin_slot: i, target_id: 20+i, target_slot: 0 }) : [100+i, 7, i, 20+i, 0, 'TYPE']) };
+    const original = structuredClone(graph.links);
+    extension.beforeConfigureGraph(graph);
+    assert.equal(graph.nodes[0].type, 'UniversalModelLoaderV2');
+    assert.equal(graph.nodes[0].outputs[1].name, 'model_name');
+    assert.equal(graph.nodes[0].outputs.length, 7);
+    graph.links.forEach((link, i) => {
+      assert.equal(objects ? link.origin_slot : link[2], i === 0 ? 0 : i+1);
+      assert.equal(objects ? link.target_id : link[3], objects ? original[i].target_id : original[i][3]);
+      assert.deepEqual(graph.nodes[0].outputs[i === 0 ? 0 : i+1].links, [100+i]);
+    });
+    const once = JSON.stringify(graph); extension.beforeConfigureGraph(graph);
+    assert.equal(JSON.stringify(graph), once);
+  }
+});
+
+test('unknown schemas and API prompts remain untouched; nested graphs migrate', () => {
+  const api = { '7': { class_type: 'UniversalModelLoader', inputs: {} }, '8': { inputs: { clip: ['7', 1] } } };
+  const original = JSON.stringify(api); extension.beforeConfigureGraph(api); assert.equal(JSON.stringify(api), original);
+  const graph = { nodes: [{ id: 1, type: 'UniversalModelLoader', outputs: [{name: 'unknown'}] }], links: [] };
+  const originalGraph = JSON.stringify(graph); extension.beforeConfigureGraph(graph); assert.equal(JSON.stringify(graph), originalGraph);
+  graph.nodes[0].outputs = ['model', 'clip', 'vae', 'loaded_info'].map(name => ({name}));
+  graph.links = [[1, 1, 99, 2, 0, 'CLIP']];
+  const malformed = JSON.stringify(graph); extension.beforeConfigureGraph(graph);
+  assert.equal(JSON.stringify(graph), malformed);
+  graph.links = [];
+  extension.beforeConfigureGraph({ definitions: { subgraphs: [graph] } });
+  assert.equal(graph.nodes[0].type, 'UniversalModelLoaderV2');
+});
+
 test('secondary visibility tracks optional encoder', async () => {
   const node = new Node(); node.onNodeCreated(); await tick();
   assert.equal(w(node, 'clip2_type').hidden, true);

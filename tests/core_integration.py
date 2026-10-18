@@ -28,8 +28,12 @@ core_types = set(core.CLIPLoader.INPUT_TYPES()["required"]["type"][0])
 assert set(schema["clip_type"][0]) == core_types | {"auto"}
 assert schema["clip2_name"][1]["default"] == "none"
 assert schema["vae2_name"][1]["default"] == "none"
-assert package.__version__ == "1.2.0"
+assert package.__version__ == "1.3.0"
 assert loader.UniversalModelLoader.RETURN_TYPES == ("MODEL", "CLIP", "VAE", "STRING", "CLIP", "VAE")
+assert loader.UniversalModelLoaderV2.RETURN_TYPES == ("MODEL", "STRING", "CLIP", "VAE", "STRING", "CLIP", "VAE")
+assert loader.UniversalModelLoaderV2.RETURN_NAMES[1] == "model_name"
+assert loader.UniversalMOSSLoader.RETURN_TYPES == ("MOSS_IMAGE_DIT", "STRING", "MOSS_IMAGE_TE", "MOSS_IMAGE_VAE")
+assert "diffusion_model_name" in loader.UniversalMOSSLoader.INPUT_TYPES()["required"]
 count = 0
 for name, expected in auto.RUNTIME_FAMILIES.items():
     cls = getattr(supported, name)

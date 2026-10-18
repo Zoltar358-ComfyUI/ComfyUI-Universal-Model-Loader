@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.2.0
+Version: 1.3.0
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
@@ -64,11 +64,12 @@ git clone https://github.com/city96/ComfyUI-GGUF.git
 Outputs:
 
 1. `model` — `MODEL`
-2. `clip` — `CLIP`
-3. `vae` — `VAE`
-4. `loaded_info` — `STRING`
-5. `clip2` — `CLIP` optional second CLIP/text encoder, or `none`
-6. `vae2` — `VAE` optional second VAE, or `none`
+2. `model_name` — `STRING`: filename without the final extension; Diffusers folder basename
+3. `clip` — `CLIP`
+4. `vae` — `VAE`
+5. `loaded_info` — `STRING`
+6. `clip2` — `CLIP` optional second CLIP/text encoder, or `none`
+7. `vae2` — `VAE` optional second VAE, or `none`
 
 Supported modes:
 
@@ -82,6 +83,34 @@ The node uses a purple/dark-teal theme matching the screenshot you provided. The
 Optional `clip2` and `vae2` selectors default to `none`, so existing one-CLIP/one-VAE workflows remain simple. Select a second text encoder or VAE only for model families/workflows that require one.
 
 Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image/Qwen Image 2.1/QWN2, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax/MiniMax Music3/MM3/RVQ, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
+
+## 1.3.0: model names and grounded MOSS-Image integration
+
+- The new **Universal MODEL Loader** (`UniversalModelLoaderV2`) places `model_name` directly after `model`. It uses the selected filename without its final extension (including Windows paths); Diffusers uses the folder basename unchanged. Name formatting performs **no hashing, file reads, or network requests**.
+- Existing UI workflows with recognized four/six-output schemas migrate before graph configuration: the class changes to V2, and outgoing slots after MODEL shift together with their sockets. Migration is idempotent and handles nested graph definitions and array/object links. Unknown schemas stay untouched.
+- **API compatibility:** the original `UniversalModelLoader` class remains registered with the original six-output contract, shown as **Universal MODEL Loader (legacy API)**. Old API prompts keep working unchanged. For new API prompts, use `UniversalModelLoaderV2` and output indices `0=model, 1=model_name, 2=clip, 3=vae, 4=loaded_info, 5=clip2, 6=vae2`. Do not merely rename an old API class without updating its consumer indices.
+
+### Universal MOSS-Image Loader
+
+The inspected core does **not** have a MOSS CLIP type or native MOSS model implementation. The installed `moss-image-t8` integration uses its own typed component descriptors. Consequently MOSS support is a separate **Universal MOSS-Image Loader** (`UniversalMOSSLoader`), not an invented `clip_type=moss`, wildcard socket, or MOSS mode pretending to return core MODEL/CLIP/VAE.
+
+Requires the optional integration providing `MOSSOfficialDiffusionLoader`, `MOSSOfficialTextEncoderLoader` and `MOSSOfficialVAELoader`. Without it, the rest of this pack still works and executing the MOSS node gives an actionable dependency error. The adapter uses the registered loaders and their selectors; it never downloads, converts, or automatically substitutes models.
+
+Outputs, in order:
+
+1. `model` — `MOSS_IMAGE_DIT` → **MOSSOfficialSampler** `dit`
+2. `model_name` — `STRING`, filename without extension
+3. `text_encoder` — `MOSS_IMAGE_TE` → **MOSSOfficialTextEncode** `text_encoder`
+4. `vae` — `MOSS_IMAGE_VAE` → **MOSSOfficialVAEDecode** `vae`
+
+Use the dependency's independently exported Base/SFT DiT, Qwen3.5-9B text encoder with local tokenizer sidecars, and explicit FLUX.2 VAE component package. Raw INT8/ConvRot/AIO files are **not** supported by this adapter; their presence on disk does not establish compatibility. Do not connect these outputs to standard KSampler/CLIPTextEncode/VAEDecode. Device and DiT precision are forwarded; the dependency retains its own component validation, integrity hashing, and cache-invalidation checks. Those checks are separate from the zero-I/O `model_name` formatting.
+
+**Verification boundary:** real local Base and SFT component loaders, text encoder and VAE passed the dependency's complete metadata/manifest/weight-integrity validation. Raw INT8 rejection was also verified. This exercises descriptor loading, not tensor allocation or image generation. Core contracts and all existing model routes have separate regression coverage.
+
+```bash
+# Optional real component test; reads/hashes existing local packages, never downloads:
+/path/to/ComfyUI/.venv/bin/python tests/moss_integration.py /path/to/ComfyUI /path/to/shared/models
+```
 
 ## 1.2.0: reliable automatic CLIP selection
 

@@ -1,6 +1,43 @@
 import { app } from "/scripts/app.js";
 
-const NODE_NAME = "UniversalModelLoader";
+// Run before LiteGraph configures sockets/links. API-only graphs retain the
+// legacy class contract; never infer socket indices from an unversioned API.
+const LEGACY_NAMES = ["model", "clip", "vae", "loaded_info", "clip2", "vae2"];
+function migrateLoaderGraphs(value) {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value.nodes) && Array.isArray(value.links)) {
+    for (const node of value.nodes) {
+      if (node.type !== "UniversalModelLoader" || !Array.isArray(node.outputs)) continue;
+      // Recognize both original four-output and subsequent six-output schemas.
+      if (![4, 6].includes(node.outputs.length) ||
+          !node.outputs.every((output, i) => output.name === LEGACY_NAMES[i])) continue;
+      const links = value.links.filter(link => String(Array.isArray(link) ? link[1] : link.origin_id) === String(node.id));
+      // Unknown link representations must not be partially migrated.
+      if (links.some(link => {
+        const slot = Array.isArray(link) ? link[2] : link.origin_slot;
+        return !Number.isInteger(slot) || slot < 0 || slot >= node.outputs.length;
+      })) continue;
+      for (const link of links) {
+        if (Array.isArray(link)) { if (link[2] > 0) link[2]++; }
+        else if (link.origin_slot > 0) link.origin_slot++;
+      }
+      node.outputs.splice(1, 0, { name: "model_name", type: "STRING", links: null });
+      for (let i = 0; i < node.outputs.length; i++) {
+        if ("slot_index" in node.outputs[i]) node.outputs[i].slot_index = i;
+      }
+      if (node.outputs.length === 5) {
+        node.outputs.push({ name: "clip2", type: "CLIP", links: null }, { name: "vae2", type: "VAE", links: null });
+      }
+      node.type = "UniversalModelLoaderV2";
+    }
+  }
+  // Also handles nested subgraph definitions without relying on their IDs.
+  for (const child of Object.values(value)) {
+    if (child && typeof child === "object") migrateLoaderGraphs(child);
+  }
+}
+
+const NODE_NAMES = new Set(["UniversalModelLoader", "UniversalModelLoaderV2"]);
 const INITIAL_WIDTH = 580;
 const MIN_HEIGHT = 90;
 
@@ -237,8 +274,9 @@ function patchLiveWidgets(node) {
 
 app.registerExtension({
   name: "UniversalModelLoader.DynamicWidgets",
+  beforeConfigureGraph(graphData) { migrateLoaderGraphs(graphData); },
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData.name !== NODE_NAME) return;
+    if (!NODE_NAMES.has(nodeData.name)) return;
 
     const originalCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function() {

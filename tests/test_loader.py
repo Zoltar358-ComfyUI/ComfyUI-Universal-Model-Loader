@@ -107,5 +107,45 @@ class LoaderTests(unittest.TestCase):
         self.core.UNETLoader.return_value.load_unet.assert_called_with("renamed", "fp8_e4m3fn")
 
 
+class V13Tests(LoaderTests):
+    def test_filename_outputs_all_backends_and_legacy_contract(self):
+        kwargs = dict(checkpoint_name="nested/model.v2.safetensors", diffusion_model_name=r"MI\model.v3.safetensors", diffusers_model_path="nested/folder.v1/", gguf_unet_name="nested/model.Q4.gguf", weight_dtype="default", gguf_dequant_dtype="default", gguf_patch_dtype="default", gguf_patch_on_device=False, clip_name="qwen3", clip_type="auto", clip_device="cpu", vae_name="explicit_vae", clip2_name="none", vae2_name="none", clip2_type="auto", clip2_device="default")
+        self.loader._load_diffusers = Mock(return_value=(self.model, "clip", "vae"))
+        self.loader._load_gguf_unet = Mock(return_value=self.model)
+        expected = dict(checkpoint="model.v2", diffusion_model="model.v3", unet="model.v3", diffusers="folder.v1", gguf_unet="model.Q4")
+        for mode, name in expected.items():
+            with self.subTest(mode=mode):
+                old = self.loader.UniversalModelLoader().load_model(model_type=mode, **kwargs)
+                new = self.loader.UniversalModelLoaderV2().load_model(model_type=mode, **kwargs)
+                self.assertEqual(new, (old[0], name, *old[1:]))
+        self.assertEqual(self.loader.UniversalModelLoaderV2.RETURN_NAMES[0:2], ("model", "model_name"))
+        self.assertIs(self.loader.NODE_CLASS_MAPPINGS["UniversalModelLoader"], self.loader.UniversalModelLoader)
+
+    def test_moss_dependency_contract_and_forwarding(self):
+        moss = sys.modules["uml_test.moss_loader"]
+        self.core.NODE_CLASS_MAPPINGS = {}
+        with self.assertRaisesRegex(RuntimeError, "moss-image-t8"):
+            moss.UniversalMOSSLoader().load_model("dit", "te", "vae")
+        classes = []
+        for name, socket, folder in moss.COMPONENTS:
+            cls = Mock()
+            cls.RETURN_TYPES = (socket,)
+            cls.FUNCTION = "load"
+            cls.return_value.load.return_value = (folder,)
+            cls.IS_CHANGED.return_value = folder
+            self.core.NODE_CLASS_MAPPINGS[name] = cls
+            classes.append(cls)
+        node = moss.UniversalMOSSLoader()
+        self.assertEqual(node.load_model("MI/moss.safetensors", "te", "explicit", "cpu", "fp32"),
+                         ("diffusion_models", "moss", "text_encoders", "vae"))
+        classes[0].return_value.load.assert_called_once_with("MI/moss.safetensors", device="cpu", precision="fp32")
+        classes[1].return_value.load.assert_called_once_with("te", device="cpu")
+        classes[2].return_value.load.assert_called_once_with("explicit", device="cpu")
+        self.assertEqual(node.IS_CHANGED("dit", "te", "vae"), ("diffusion_models", "text_encoders", "vae"))
+        classes[0].RETURN_TYPES = ("MODEL",)
+        with self.assertRaisesRegex(RuntimeError, "Incompatible"):
+            node.load_model("dit", "te", "vae")
+
+
 if __name__ == "__main__":
     unittest.main()

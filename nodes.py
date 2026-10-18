@@ -11,6 +11,8 @@ import comfy.sd
 import folder_paths
 
 from .clip_auto import resolve_clip_type
+from .model_name import model_name as display_model_name
+from .moss_loader import UniversalMOSSLoader
 
 
 def _load_comfy_nodes_module():
@@ -367,10 +369,30 @@ class UniversalModelLoader:
         raise ValueError(f"Unsupported model_type: {model_type}")
 
 
+class UniversalModelLoaderV2(UniversalModelLoader):
+    """New socket contract; the original API class remains backward compatible."""
+    RETURN_TYPES = ("MODEL", "STRING", "CLIP", "VAE", "STRING", "CLIP", "VAE")
+    RETURN_NAMES = ("model", "model_name", "clip", "vae", "loaded_info", "clip2", "vae2")
+
+    def load_model(self, *args, **kwargs):
+        bound = inspect.signature(super().load_model).bind(*args, **kwargs).arguments
+        selectors = {"checkpoint": "checkpoint_name", "diffusers": "diffusers_model_path",
+                     "diffusion_model": "diffusion_model_name", "unet": "diffusion_model_name",
+                     "gguf_unet": "gguf_unet_name"}
+        result = super().load_model(*args, **kwargs)
+        kind = bound["model_type"]
+        name = display_model_name(bound[selectors[kind]], folder=kind == "diffusers")
+        return (result[0], name, *result[1:])
+
+
 NODE_CLASS_MAPPINGS = {
     "UniversalModelLoader": UniversalModelLoader,
+    "UniversalModelLoaderV2": UniversalModelLoaderV2,
+    "UniversalMOSSLoader": UniversalMOSSLoader,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "UniversalModelLoader": "Universal MODEL Loader",
+    "UniversalModelLoader": "Universal MODEL Loader (legacy API)",
+    "UniversalModelLoaderV2": "Universal MODEL Loader",
+    "UniversalMOSSLoader": "Universal MOSS-Image Loader",
 }
