@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.3.0
+Version: 1.3.1
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
@@ -83,6 +83,15 @@ The node uses a purple/dark-teal theme matching the screenshot you provided. The
 Optional `clip2` and `vae2` selectors default to `none`, so existing one-CLIP/one-VAE workflows remain simple. Select a second text encoder or VAE only for model families/workflows that require one.
 
 Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image/Qwen Image 2.1/QWN2, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax/MiniMax Music3/MM3/RVQ, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
+
+## 1.3.1: MOSS routing from the universal node
+
+The reported failure was core `UNETLoader` rejecting `mossImage_sft_pruned_int8.safetensors` **before CLIP loading**, not a missing dropdown entry. Adding a fictional `moss` CLIP type cannot make this checkpoint compatible.
+
+- Recognized MOSS filenames selected in the core universal loader now fail **before weight allocation**, with instructions for the typed route. Inactive hidden selectors are ignored. Renamed/unrecognized files still rely on the backend's own validation.
+- Right-click an existing **Universal MODEL Loader** → **Add MOSS-Image loader (typed)**. This adds a separate typed node beside it, copies the selected model/encoder/VAE filenames verbatim, and leaves the old node and all links intact. It does **not** convert files, validate compatibility, reconnect incompatible sockets, or silently substitute a VAE. Unsupported copied choices must be replaced explicitly.
+- Select independently exported MOSS components in the new node and connect its outputs to the `moss-image-t8` official encode/sample/decode nodes below. Raw/pruned INT8 remains unsupported. No `clip_type` exists or is needed on this typed node.
+- Restart ComfyUI and refresh the browser after updating. Existing API and output contracts are unchanged.
 
 ## 1.3.0: model names and grounded MOSS-Image integration
 

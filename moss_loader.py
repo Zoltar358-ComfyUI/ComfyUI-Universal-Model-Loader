@@ -4,8 +4,23 @@ These descriptors are NOT ComfyUI MODEL/CLIP/VAE objects. Never disguise them
 with wildcard sockets or route them through core UNETLoader/CLIPLoader.
 """
 import importlib
+import re
 
 from .model_name import model_name
+
+
+def reject_moss_in_core(*names):
+    """Recognize explicit MOSS filenames, not generic Qwen encoders or MI dirs."""
+    if any(re.search(r"(?:^|[^a-z0-9])moss(?:[-_ ]?image)?(?:[^a-z0-9]|$)",
+                     str(name).lower()) for name in names):
+        raise ValueError(
+            "MOSS-Image is not a core MODEL/CLIP/VAE backend; adding a moss clip_type "
+            "cannot fix it. Right-click this node → Add MOSS-Image loader (typed). "
+            "Use independently exported MOSS diffusion, Qwen3.5 text encoder and VAE "
+            "components with moss-image-t8 Official Text Encode / Sampler / VAE Decode, "
+            "not KSampler. Raw/pruned INT8 checkpoints are not supported by that loader. "
+            "No files are converted or substituted automatically."
+        )
 
 COMPONENTS = (
     ("MOSSOfficialDiffusionLoader", "MOSS_IMAGE_DIT", "diffusion_models"),

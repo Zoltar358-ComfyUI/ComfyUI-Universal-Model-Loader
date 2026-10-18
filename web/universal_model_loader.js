@@ -272,11 +272,40 @@ function patchLiveWidgets(node) {
   patchCallback(node, "clip2_name");
 }
 
+function addMOSSLoader(source) {
+  const graph = source.graph;
+  if (!graph) return;
+  const node = globalThis.LiteGraph?.createNode("UniversalMOSSLoader");
+  if (!node) {
+    globalThis.alert?.("Universal MOSS-Image Loader is unavailable. Restart ComfyUI and refresh the browser after updating.");
+    return;
+  }
+  // Copy verbatim, even when unsupported: never silently choose another VAE/model.
+  const kind = selected(source, "model_type", "diffusion_model");
+  for (const [target, origin] of [["diffusion_model_name", MODEL_SELECTOR_BY_TYPE[kind]],
+      ["text_encoder_name", "clip_name"], ["vae_name", "vae_name"]]) {
+    const dest = widget(node, target);
+    if (dest) dest.value = selected(source, origin, "— select MOSS component —");
+  }
+  node.pos = [source.pos[0] + (source.size?.[0] || INITIAL_WIDTH) + 40, source.pos[1]];
+  graph.add(node);
+  graph.setDirtyCanvas?.(true, true);
+  globalThis.alert?.("Added typed MOSS loader; original node and links are unchanged. File choices were copied, NOT converted or validated. Select independently exported MOSS components (raw/pruned INT8 is unsupported), then connect to moss-image-t8 Official Text Encode / Sampler / VAE Decode. Do not connect to KSampler. No moss clip_type is required.");
+  return node;
+}
+
 app.registerExtension({
   name: "UniversalModelLoader.DynamicWidgets",
   beforeConfigureGraph(graphData) { migrateLoaderGraphs(graphData); },
   async beforeRegisterNodeDef(nodeType, nodeData) {
     if (!NODE_NAMES.has(nodeData.name)) return;
+
+    const originalMenu = nodeType.prototype.getExtraMenuOptions;
+    nodeType.prototype.getExtraMenuOptions = function(canvas, options) {
+      const result = originalMenu?.apply(this, arguments);
+      options.push({ content: "Add MOSS-Image loader (typed)", callback: () => addMOSSLoader(this) });
+      return result;
+    };
 
     const originalCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function() {

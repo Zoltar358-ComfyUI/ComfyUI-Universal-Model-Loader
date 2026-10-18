@@ -34,6 +34,21 @@ node = uml.NODE_CLASS_MAPPINGS["UniversalMOSSLoader"]()
 schema = node.INPUT_TYPES()["required"]
 assert "moss" not in core.CLIPLoader.INPUT_TYPES()["required"]["type"][0]
 print("Core has no moss CLIP type; adapter uses exact MOSS_IMAGE_* contracts", flush=True)
+# Reproduce the reported universal-node route against real core (no weight mocks).
+core_loader = uml.NODE_CLASS_MAPPINGS["UniversalModelLoaderV2"]()
+kwargs = {}
+for key, entry in core_loader.INPUT_TYPES()["required"].items():
+    options = entry[1] if len(entry) > 1 else {}
+    kwargs[key] = options.get("default", entry[0][0] if isinstance(entry[0], list) else False)
+kwargs.update(model_type="diffusion_model", diffusion_model_name="MI/mossImage_sft_pruned_int8.safetensors",
+              clip_name="MI/moss-image-qwen35-bf16.safetensors", vae_name="MI/moss-image-vae.safetensors")
+try:
+    core_loader.load_model(**kwargs)
+except ValueError as exc:
+    assert "Add MOSS-Image loader" in str(exc)
+    print("PASS reported universal route rejected with typed-routing guidance before core loading", flush=True)
+else:
+    raise AssertionError("MOSS incorrectly routed through core")
 for dit in ("MI/moss-image-sft-bf16.safetensors", "MIB/moss-image-base-bf16.safetensors"):
     te, vae = "MI/moss-image-qwen35-bf16.safetensors", "MI/moss-image-vae.safetensors"
     for key, name in (("diffusion_model_name", dit), ("text_encoder_name", te), ("vae_name", vae)):

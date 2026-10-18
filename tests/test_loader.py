@@ -85,6 +85,21 @@ class LoaderTests(unittest.TestCase):
         secondary, _, _ = self.loader._resolve_optional_aux_models("KR2/model", "qwen_rvq", "auto", "default", "none", self.model)
         self.assertEqual(secondary[1], "minimax")
 
+    def test_moss_fails_before_core_weight_loading(self):
+        kwargs = dict(model_type="diffusion_model", checkpoint_name="unused", diffusion_model_name="MI/mossImage_sft_pruned_int8.safetensors", diffusers_model_path="unused", gguf_unet_name="unused", weight_dtype="default", gguf_dequant_dtype="default", gguf_patch_dtype="default", gguf_patch_on_device=False, clip_name="encoder", clip_type="auto", clip_device="cpu", vae_name="explicit", clip2_name="none", vae2_name="none", clip2_type="auto", clip2_device="default")
+        for cls in (self.loader.UniversalModelLoader, self.loader.UniversalModelLoaderV2):
+            with self.assertRaisesRegex(ValueError, "Add MOSS-Image loader"):
+                cls().load_model(**kwargs)
+        self.core.UNETLoader.return_value.load_unet.assert_not_called()
+        self.core.CLIPLoader.return_value.load_clip.assert_not_called()
+        # Hidden primary selectors in checkpoint mode must not influence routing.
+        kwargs.update(model_type="checkpoint", checkpoint_name="normal.safetensors",
+                      clip_name="moss-image-encoder", vae_name="moss-image-vae")
+        self.loader.UniversalModelLoader().load_model(**kwargs)
+        kwargs["clip2_name"] = "moss-image-encoder"
+        with self.assertRaisesRegex(ValueError, "Add MOSS-Image loader"):
+            self.loader.UniversalModelLoader().load_model(**kwargs)
+
     def test_optional_none_does_not_load(self):
         self.assertEqual(self.loader._resolve_optional_aux_models("", "none", "auto", "cpu", "none"), (None, None, []))
         self.core.CLIPLoader.return_value.load_clip.assert_not_called()
@@ -120,6 +135,14 @@ class V13Tests(LoaderTests):
                 self.assertEqual(new, (old[0], name, *old[1:]))
         self.assertEqual(self.loader.UniversalModelLoaderV2.RETURN_NAMES[0:2], ("model", "model_name"))
         self.assertIs(self.loader.NODE_CLASS_MAPPINGS["UniversalModelLoader"], self.loader.UniversalModelLoader)
+
+    def test_moss_filename_boundaries(self):
+        reject = sys.modules["uml_test.moss_loader"].reject_moss_in_core
+        for name in (r"MI\mossImage_sft_pruned_int8.safetensors", "moss-image-base-bf16", "moss_image_vae", "MOSS/model"):
+            with self.assertRaisesRegex(ValueError, "not a core MODEL"):
+                reject(name)
+        for name in ("MI/ordinary", "qwen3_5", "cosmoss", "mossy-landscape", "image"):
+            reject(name)
 
     def test_moss_dependency_contract_and_forwarding(self):
         moss = sys.modules["uml_test.moss_loader"]

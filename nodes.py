@@ -12,7 +12,7 @@ import folder_paths
 
 from .clip_auto import resolve_clip_type
 from .model_name import model_name as display_model_name
-from .moss_loader import UniversalMOSSLoader
+from .moss_loader import UniversalMOSSLoader, reject_moss_in_core
 
 
 def _load_comfy_nodes_module():
@@ -322,6 +322,14 @@ class UniversalModelLoader:
         clip2_type,
         clip2_device,
     ):
+        active_model = {"checkpoint": checkpoint_name, "diffusers": diffusers_model_path,
+                        "diffusion_model": diffusion_model_name, "unet": diffusion_model_name,
+                        "gguf_unet": gguf_unet_name}.get(model_type, "")
+        # Reject before allocating core weights, including explicitly chosen auxiliary files.
+        active_aux = [clip2_name, vae2_name]
+        if model_type in MODEL_ONLY_TYPES:
+            active_aux += [clip_name, vae_name]
+        reject_moss_in_core(active_model, *active_aux)
         if model_type == "checkpoint":
             _require_choice("checkpoints", checkpoint_name)
             ckpt_path = folder_paths.get_full_path_or_raise("checkpoints", checkpoint_name)

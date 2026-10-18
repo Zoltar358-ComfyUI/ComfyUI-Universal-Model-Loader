@@ -18,6 +18,29 @@ class Node {
   computeSize() { return [200, 300]; }
 }
 await extension.beforeRegisterNodeDef(Node, { name: 'UniversalModelLoader' });
+test('MOSS menu creates typed sibling without rewiring or substituting files', () => {
+  const source = new Node();
+  source.widgets.push({ name: 'clip_name', value: 'MI/moss-image-qwen35-bf16.safetensors' });
+  source.widgets.find(w => w.name === 'diffusion_model_name').value = 'MI/mossImage_sft_pruned_int8.safetensors';
+  const links = [[1, 4, 0, 9, 0, 'MODEL']];
+  let added, message;
+  source.graph = { links, add(node) { added = node; } };
+  context.LiteGraph = { createNode(type) {
+    assert.equal(type, 'UniversalMOSSLoader');
+    return { widgets: ['diffusion_model_name', 'text_encoder_name', 'vae_name'].map(name => ({ name, value: 'DO NOT SUBSTITUTE' })) };
+  } };
+  context.alert = text => { message = text; };
+  const options = []; source.getExtraMenuOptions(null, options);
+  options.find(x => x.content === 'Add MOSS-Image loader (typed)').callback();
+  assert.equal(added.widgets[0].value, 'MI/mossImage_sft_pruned_int8.safetensors');
+  assert.equal(added.widgets[1].value, 'MI/moss-image-qwen35-bf16.safetensors');
+  assert.equal(added.widgets[2].value, 'explicit_vae');
+  assert.equal(source.graph.links, links);
+  assert.match(message, /raw\/pruned INT8 is unsupported/);
+  assert.match(message, /NOT converted or validated/);
+  assert.equal(source.widgets.find(w => w.name === 'clip_type').value, 'auto');
+});
+
 const tick = () => new Promise(resolve => queueMicrotask(resolve));
 const w = (node, name) => node.widgets.find(w => w.name === name);
 
