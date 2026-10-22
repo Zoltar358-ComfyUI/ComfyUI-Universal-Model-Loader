@@ -4,21 +4,22 @@ These descriptors are NOT ComfyUI MODEL/CLIP/VAE objects. Never disguise them
 with wildcard sockets or route them through core UNETLoader/CLIPLoader.
 """
 import importlib
-import re
+from .clip_auto import family_hint
 
 from .model_name import model_name
 
 
-def reject_moss_in_core(*names):
-    """Recognize explicit MOSS filenames, not generic Qwen encoders or MI dirs."""
-    if any(re.search(r"(?:^|[^a-z0-9])moss(?:[-_ ]?image)?(?:[^a-z0-9]|$)",
-                     str(name).lower()) for name in names):
+def reject_moss_in_core(*names, available=()):
+    """Only guard older cores; native core loaders validate actual file support."""
+    if "moss_image" in available:
+        return
+    if any(family_hint(name) == "moss_image" for name in names):
         raise ValueError(
-            "MOSS-Image is not a core MODEL/CLIP/VAE backend; adding a moss clip_type "
-            "cannot fix it. Right-click this node → Add MOSS-Image loader (typed). "
-            "Use independently exported MOSS diffusion, Qwen3.5 text encoder and VAE "
-            "components with moss-image-t8 Official Text Encode / Sampler / VAE Decode, "
-            "not KSampler. Raw/pruned INT8 checkpoints are not supported by that loader. "
+            "Native MOSS-Image support is unavailable in this ComfyUI build "
+            "(CLIPLoader type moss_image). Update ComfyUI for standard MODEL/CLIP/VAE "
+            "loading, or right-click → Add MOSS-Image loader (typed) for the optional "
+            "moss-image-t8 integration and its independently exported components. "
+            "The typed route does not support raw/pruned INT8 files. "
             "No files are converted or substituted automatically."
         )
 

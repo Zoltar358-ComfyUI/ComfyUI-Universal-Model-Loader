@@ -325,11 +325,11 @@ class UniversalModelLoader:
         active_model = {"checkpoint": checkpoint_name, "diffusers": diffusers_model_path,
                         "diffusion_model": diffusion_model_name, "unet": diffusion_model_name,
                         "gguf_unet": gguf_unet_name}.get(model_type, "")
-        # Reject before allocating core weights, including explicitly chosen auxiliary files.
+        # Older cores need an actionable error; native cores validate file compatibility.
         active_aux = [clip2_name, vae2_name]
         if model_type in MODEL_ONLY_TYPES:
             active_aux += [clip_name, vae_name]
-        reject_moss_in_core(active_model, *active_aux)
+        reject_moss_in_core(active_model, *active_aux, available=_available_clip_types())
         if model_type == "checkpoint":
             _require_choice("checkpoints", checkpoint_name)
             ckpt_path = folder_paths.get_full_path_or_raise("checkpoints", checkpoint_name)

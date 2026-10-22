@@ -4,7 +4,7 @@
 
 Author: Zoltar358
 
-Version: 1.3.1
+Version: 1.3.2
 
 A local ComfyUI custom node pack that provides one loader node with a first-step `model_type` selector. The browser UI hides irrelevant parameters after you choose the type, while optional second CLIP and VAE selectors support workflows that need additional encoders or VAEs.
 
@@ -84,7 +84,13 @@ Optional `clip2` and `vae2` selectors default to `none`, so existing one-CLIP/on
 
 Auto CLIP type selection recognizes current ComfyUI model-family hints including Krea2/KR2, Qwen Image/Qwen Image 2.1/QWN2, Hunyuan Image, Ideogram 4, Boogu, JoyImage, Mage, MiniMax/MiniMax Music3/MM3/RVQ, LongCat Image, PixelDiT, Omnigen2, Flux.2/FK9, Wan, HiDream, Chroma, Ovis, Lens, CogVideoX, Cosmos, LTXV, Mochi, PixArt, Lumina2, ACE, SD3, Stable Audio, and Stable Cascade when those CLIP types are available in the installed ComfyUI build.
 
-## 1.3.1: MOSS routing from the universal node
+## 1.3.2: native MOSS-Image compatibility
+
+Current ComfyUI exposes `moss_image` / `CLIPType.MOSS_IMAGE` and a native `MOSSImage` model config. The standard universal loader now allows native MOSS files when that CLIP type is available. `auto` recognizes MOSS filenames, MOSS-specific Qwen encoder names, and the loaded model config; generic Qwen3.5 names alone remain ambiguous. Explicit CLIP types, VAEs, model names and all socket indices are unchanged. Native core performs actual weight-format validation.
+
+Use the matching Qwen3.5-9B encoder and MOSS/Flux2-compatible VAE with standard MODEL/CLIP/VAE consumers. Older cores without `moss_image` receive an update-or-typed-loader error. The optional typed sibling remains available and is not substituted automatically.
+
+## 1.3.1: previous MOSS routing (superseded)
 
 The reported failure was core `UNETLoader` rejecting `mossImage_sft_pruned_int8.safetensors` **before CLIP loading**, not a missing dropdown entry. Adding a fictional `moss` CLIP type cannot make this checkpoint compatible.
 
@@ -101,7 +107,7 @@ The reported failure was core `UNETLoader` rejecting `mossImage_sft_pruned_int8.
 
 ### Universal MOSS-Image Loader
 
-The inspected core does **not** have a MOSS CLIP type or native MOSS model implementation. The installed `moss-image-t8` integration uses its own typed component descriptors. Consequently MOSS support is a separate **Universal MOSS-Image Loader** (`UniversalMOSSLoader`), not an invented `clip_type=moss`, wildcard socket, or MOSS mode pretending to return core MODEL/CLIP/VAE.
+On older cores without native MOSS support, the optional `moss-image-t8` integration uses its own typed component descriptors. **Universal MOSS-Image Loader** (`UniversalMOSSLoader`) remains a separate adapter for that integration. On current native cores use the standard universal loader with `clip_type=auto` or `moss_image`; the typed descriptors are not core MODEL/CLIP/VAE objects.
 
 Requires the optional integration providing `MOSSOfficialDiffusionLoader`, `MOSSOfficialTextEncoderLoader` and `MOSSOfficialVAELoader`. Without it, the rest of this pack still works and executing the MOSS node gives an actionable dependency error. The adapter uses the registered loaders and their selectors; it never downloads, converts, or automatically substitutes models.
 

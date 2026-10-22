@@ -3,6 +3,7 @@ import re
 
 # Specific names only: generic Qwen/Gemma/T5 encoders serve several families.
 ALIASES = {
+    "moss_image": ("moss", "moss-image", "mossimage", "mossimagefinalcut5gb", "qwen35formossimage"),
     "krea2": ("krea2", "krea-2", "kr2"),
     "qwen_image": ("qwen-image", "qwenimage", "qwen-image21", "qwenimage21", "qwen2.1", "qwen-2.1", "qwn2"),
     "hunyuan_image": ("hunyuan-image",),
@@ -32,6 +33,7 @@ PATTERNS = tuple((family, re.compile(r"(?<![a-z0-9])(?:" + "|".join(map(re.escap
 
 # Names of installed ComfyUI supported_models configs; MRO handles derivatives.
 RUNTIME_FAMILIES = {
+    "MOSSImage": "moss_image",
     "Krea2": "krea2", "QwenImage": "qwen_image", "QwenImage21": "qwen_image",
     "HunyuanImage21": "hunyuan_image", "HunyuanImage21Refiner": "hunyuan_image",
     "Ideogram4": "ideogram4", "Boogu": "boogu", "JoyImage": "joyimage",

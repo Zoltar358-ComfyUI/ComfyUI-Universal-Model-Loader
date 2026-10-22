@@ -42,6 +42,16 @@ class AutoTests(unittest.TestCase):
         self.assertEqual(auto.resolve_clip_type("KR2/model", "auto", "qwen_rvq", AVAILABLE, model), "minimax")
         self.assertEqual(auto.resolve_clip_type("unknown", "auto", "qwen3", AVAILABLE, model_for("ZImage")), "stable_diffusion")
 
+    def test_native_moss_hints_and_runtime(self):
+        for name in ["MI/MOSS Image (int8 ConvRot).safetensors", "MI/mossImageFinalcut5GB_universal.safetensors",
+                     "MI/qwen35ForMossImage_v10_int8.safetensors", r"MI\moss_image_vae.safetensors"]:
+            self.assertEqual(auto.family_hint(name), "moss_image")
+        for name in ["MI/ordinary", "qwen35_9b", "cosmoss", "mossy-landscape"]:
+            self.assertIsNone(auto.family_hint(name))
+        self.assertEqual(auto.resolve_clip_type("renamed", "auto", "qwen35_9b", AVAILABLE, model_for("MOSSImage")), "moss_image")
+        with self.assertRaisesRegex(ValueError, "moss_image.*unavailable"):
+            auto.resolve_clip_type("moss-image", "auto", "encoder", {"stable_diffusion"})
+
     def test_unsupported_family_does_not_silently_fallback(self):
         with self.assertRaisesRegex(ValueError, "unavailable"):
             auto.resolve_clip_type("KR2/model", "auto", "encoder", {"stable_diffusion"})
@@ -86,6 +96,7 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(secondary[1], "minimax")
 
     def test_moss_fails_before_core_weight_loading(self):
+        self.core.CLIPLoader.INPUT_TYPES.return_value = {"required": {"type": (["stable_diffusion"],)}}
         kwargs = dict(model_type="diffusion_model", checkpoint_name="unused", diffusion_model_name="MI/mossImage_sft_pruned_int8.safetensors", diffusers_model_path="unused", gguf_unet_name="unused", weight_dtype="default", gguf_dequant_dtype="default", gguf_patch_dtype="default", gguf_patch_on_device=False, clip_name="encoder", clip_type="auto", clip_device="cpu", vae_name="explicit", clip2_name="none", vae2_name="none", clip2_type="auto", clip2_device="default")
         for cls in (self.loader.UniversalModelLoader, self.loader.UniversalModelLoaderV2):
             with self.assertRaisesRegex(ValueError, "Add MOSS-Image loader"):
@@ -99,6 +110,31 @@ class LoaderTests(unittest.TestCase):
         kwargs["clip2_name"] = "moss-image-encoder"
         with self.assertRaisesRegex(ValueError, "Add MOSS-Image loader"):
             self.loader.UniversalModelLoader().load_model(**kwargs)
+
+    def test_native_moss_routing_and_manual_types(self):
+        self.model = model_for("MOSSImage")
+        self.core.UNETLoader.return_value.load_unet.return_value = (self.model,)
+        kwargs = dict(model_type="diffusion_model", checkpoint_name="unused",
+                      diffusion_model_name="MI/MOSS Image (int8 ConvRot).safetensors",
+                      diffusers_model_path="unused", gguf_unet_name="unused", weight_dtype="default",
+                      gguf_dequant_dtype="default", gguf_patch_dtype="default", gguf_patch_on_device=False,
+                      clip_name="MI/qwen35ForMossImage_v10_int8.safetensors", clip_type="auto",
+                      clip_device="cpu", vae_name="MI/moss-image-vae.safetensors",
+                      clip2_name="qwen_rvq", clip2_type="auto", clip2_device="default", vae2_name="none")
+        result = self.loader.UniversalModelLoaderV2().load_model(**kwargs)
+        self.assertIs(result[0], self.model)
+        self.assertEqual(result[1], "MOSS Image (int8 ConvRot)")
+        self.assertEqual(result[2][1], "moss_image")
+        self.assertEqual(result[3], kwargs["vae_name"])
+        self.assertEqual(result[5][1], "minimax")
+        self.assertIsNone(result[6])
+        kwargs.update(clip_type="stable_diffusion", clip2_type="qwen_image")
+        result = self.loader.UniversalModelLoaderV2().load_model(**kwargs)
+        self.assertEqual(result[2][1], "stable_diffusion")
+        self.assertEqual(result[5][1], "qwen_image")
+        self.core.UNETLoader.return_value.load_unet.side_effect = RuntimeError("core format error")
+        with self.assertRaisesRegex(RuntimeError, "core format error"):
+            self.loader.UniversalModelLoaderV2().load_model(**kwargs)
 
     def test_optional_none_does_not_load(self):
         self.assertEqual(self.loader._resolve_optional_aux_models("", "none", "auto", "cpu", "none"), (None, None, []))
@@ -139,7 +175,7 @@ class V13Tests(LoaderTests):
     def test_moss_filename_boundaries(self):
         reject = sys.modules["uml_test.moss_loader"].reject_moss_in_core
         for name in (r"MI\mossImage_sft_pruned_int8.safetensors", "moss-image-base-bf16", "moss_image_vae", "MOSS/model"):
-            with self.assertRaisesRegex(ValueError, "not a core MODEL"):
+            with self.assertRaisesRegex(ValueError, "Native MOSS-Image support is unavailable"):
                 reject(name)
         for name in ("MI/ordinary", "qwen3_5", "cosmoss", "mossy-landscape", "image"):
             reject(name)
